@@ -50,3 +50,4 @@ tzdata==2026.3
 urllib3==2.7.0
 websockets==15.0.1
 yarl==1.24.5
+uvicorn[standard]
