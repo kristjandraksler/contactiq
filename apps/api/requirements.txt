@@ -53,3 +53,4 @@ yarl==1.24.5
 uvicorn[standard]
 fastapi
 python-multipart
+phonenumbers
