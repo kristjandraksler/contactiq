@@ -1,4 +1,4 @@
-from __future__ import annotations
+rom __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any
@@ -38,10 +38,10 @@ class BulkSelectedRequest(BaseModel):
     contact_ids: list[str] = Field(
         ...,
         min_length=1,
-        max_length=250,
+        max_length=25,
         description=(
             "Seznam UUID-jev kontaktov. "
-            "Naenkrat je dovoljenih največ 250 kontaktov."
+            "Naenkrat je dovoljenih največ 25 kontaktov."
         ),
     )
 

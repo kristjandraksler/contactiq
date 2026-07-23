@@ -84,7 +84,7 @@ USER_AGENT = (
     "+public-business-contact-discovery)"
 )
 
-FREE_EMAIL_DOMAINS = {
+PUBLIC_EMAIL_DOMAINS = {
     "gmail.com",
     "googlemail.com",
     "yahoo.com",
@@ -121,7 +121,31 @@ FREE_EMAIL_DOMAINS = {
     "tutanota.com",
     "tuta.com",
     "fastmail.com",
+
+    # Slovenian and regional internet/mail providers.
+    # These may be used by legitimate businesses, but they are not the
+    # business website/domain and must never be scanned for a phone number.
+    "telemach.net",
+    "siol.net",
+    "t-2.net",
+    "amis.net",
+    "volja.net",
+    "email.si",
+    "guest.arnes.si",
+    "arnes.si",
+    "net.hr",
+    "vip.hr",
+    "iskon.hr",
+    "t-com.hr",
+    "mts.rs",
+    "eunet.rs",
+    "sbb.rs",
 }
+
+
+def is_public_email_domain(raw_domain: str) -> bool:
+    """Return True when the value belongs to a public/ISP mail provider."""
+    return clean_domain(raw_domain) in PUBLIC_EMAIL_DOMAINS
 
 
 @dataclass
@@ -553,13 +577,13 @@ async def find_phone_for_domain(
             error="Domena ni veljavna.",
         )
 
-    if domain in FREE_EMAIL_DOMAINS:
+    if domain in PUBLIC_EMAIL_DOMAINS:
         duration = int(
             (time.perf_counter() - started_at) * 1000
         )
 
         return FinderResult(
-            status="SKIPPED_FREE_EMAIL",
+            status="EMAIL_FOUND",
             website=None,
             phone=None,
             confidence=None,
@@ -568,8 +592,8 @@ async def find_phone_for_domain(
             scan_duration_ms=duration,
             candidates=[],
             error=(
-                "Kontakt uporablja javnega ponudnika "
-                "e-pošte."
+                "E-poštni naslov je veljaven, vendar domena pripada "
+                "javnemu ponudniku e-pošte, zato telefona ne iščemo."
             ),
         )
 
