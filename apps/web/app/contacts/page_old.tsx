@@ -9,44 +9,223 @@ import {
   useState,
 } from "react";
 
-import EnrichmentDrawer from "./components/EnrichmentDrawer";
-import {
-  API_URL,
-  DEFAULT_PAGE_SIZE,
-  PAGE_SIZE_OPTIONS,
-  initialBulkProgress,
-  MAX_PAGES,
-  MAX_SELECTED,
-  statusOptions,
-} from "./constants";
-import type {
-  BulkEnrichmentResponse,
-  BulkProgress,
-  Contact,
-  ContactsResponse,
-  EnrichmentResponse,
-  Notice,
-  Pagination,
-} from "./types";
-import {
-  formatDate,
-  formatNumber,
-  getPageNumbers,
-  getStatusClass,
-  getStatusLabel,
-  readErrorMessage,
-} from "./utils";
+type Contact = {
+  id: string;
+  email: string;
+  domain: string;
+  website: string | null;
+  phone: string | null;
+  confidence: number | null;
+  source_url: string | null;
+  pages_scanned: number;
+  scan_attempts: number;
+  scan_duration_ms: number | null;
+  last_scan: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type Pagination = {
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+  has_previous: boolean;
+  has_next: boolean;
+};
+
+type ContactsResponse = {
+  items: Contact[];
+  pagination: Pagination;
+  filters: {
+    search: string | null;
+    status: string | null;
+  };
+};
+
+type FinderResult = {
+  status: string;
+  website?: string | null;
+  phone?: string | null;
+  confidence?: number | null;
+  source_url?: string | null;
+  pages_scanned?: number;
+  scan_duration_ms?: number;
+  candidates?: Array<{
+    phone: string;
+    score: number;
+    source_url: string;
+    occurrences: number;
+    from_tel_link: boolean;
+  }>;
+  error: string | null;
+};
+
+type EnrichmentResponse = {
+  success: boolean;
+  skipped: boolean;
+  contact: Contact;
+  result: FinderResult;
+};
+
+type BulkEnrichmentResponse = {
+  status: string;
+  requested?: number;
+  requested_limit?: number;
+  processed: number;
+  missing?: number;
+  missing_ids?: string[];
+  matched: number;
+  partial_match: number;
+  not_found: number;
+  skipped: number;
+  failed: number;
+  items: EnrichmentResponse[];
+  message?: string;
+};
+
+type Notice = {
+  type: "success" | "error" | "info";
+  title: string;
+  message: string;
+};
+
+type BulkProgress = {
+  active: boolean;
+  total: number;
+  processed: number;
+  matched: number;
+  partialMatch: number;
+  notFound: number;
+  skipped: number;
+  failed: number;
+  currentEmail: string | null;
+};
+
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://127.0.0.1:8000";
+
+const PAGE_SIZE = 25;
+const BULK_LIMIT = 10;
+const MAX_SELECTED = 25;
+const MAX_PAGES = 10;
+
+const initialBulkProgress: BulkProgress = {
+  active: false,
+  total: 0,
+  processed: 0,
+  matched: 0,
+  partialMatch: 0,
+  notFound: 0,
+  skipped: 0,
+  failed: 0,
+  currentEmail: null,
+};
+
+const statusOptions = [
+  { value: "", label: "Vsi statusi" },
+  { value: "NEW", label: "Čaka" },
+  { value: "MATCHED", label: "Najdeno" },
+  {
+    value: "PARTIAL_MATCH",
+    label: "Delno ujemanje",
+  },
+  { value: "NOT_FOUND", label: "Ni najdeno" },
+  { value: "FAILED", label: "Napaka" },
+];
+
+function formatNumber(value: number): string {
+  return new Intl.NumberFormat("sl-SI").format(value);
+}
+
+function formatDate(value: string | null): string {
+  if (!value) {
+    return "—";
+  }
+
+  return new Intl.DateTimeFormat("sl-SI", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function getStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    NEW: "Čaka",
+    MATCHED: "Najdeno",
+    PARTIAL_MATCH: "Delno ujemanje",
+    NOT_FOUND: "Ni najdeno",
+    FAILED: "Napaka",
+  };
+
+  return labels[status] ?? status;
+}
+
+function getStatusClass(status: string): string {
+  const classes: Record<string, string> = {
+    NEW: "statusNew",
+    MATCHED: "statusMatched",
+    PARTIAL_MATCH: "statusPartial",
+    NOT_FOUND: "statusNotFound",
+    FAILED: "statusFailed",
+  };
+
+  return classes[status] ?? "";
+}
+
+function getPageNumbers(
+  currentPage: number,
+  totalPages: number,
+): number[] {
+  if (totalPages <= 5) {
+    return Array.from(
+      { length: totalPages },
+      (_, index) => index + 1,
+    );
+  }
+
+  let start = Math.max(1, currentPage - 2);
+  const end = Math.min(totalPages, start + 4);
+
+  if (end - start < 4) {
+    start = Math.max(1, end - 4);
+  }
+
+  return Array.from(
+    { length: end - start + 1 },
+    (_, index) => start + index,
+  );
+}
+
+async function readErrorMessage(
+  response: Response,
+  fallback: string,
+): Promise<string> {
+  const body = await response.json().catch(() => null);
+
+  if (
+    body &&
+    typeof body === "object" &&
+    typeof body.detail === "string"
+  ) {
+    return body.detail;
+  }
+
+  return fallback;
+}
 
 export default function ContactsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
 
-  const [pageSize, setPageSize] =
-    useState(DEFAULT_PAGE_SIZE);
-
   const [pagination, setPagination] =
     useState<Pagination>({
       page: 1,
-      page_size: DEFAULT_PAGE_SIZE,
+      page_size: PAGE_SIZE,
       total: 0,
       total_pages: 0,
       has_previous: false,
@@ -87,7 +266,7 @@ export default function ContactsPage() {
 
       const params = new URLSearchParams({
         page: String(page),
-        page_size: String(pageSize),
+        page_size: String(PAGE_SIZE),
       });
 
       if (activeSearch.trim()) {
@@ -136,7 +315,7 @@ export default function ContactsPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeSearch, page, pageSize, status]);
+  }, [activeSearch, page, status]);
 
   useEffect(() => {
     void loadContacts();
@@ -204,15 +383,6 @@ export default function ContactsPage() {
     setPage(1);
     setNotice(null);
     setSelectedIds([]);
-  }
-
-  function handlePageSizeChange(
-    event: ChangeEvent<HTMLSelectElement>,
-  ) {
-    setPageSize(Number(event.target.value));
-    setPage(1);
-    setSelectedIds([]);
-    setNotice(null);
   }
 
   function toggleContactSelection(
@@ -283,9 +453,9 @@ export default function ContactsPage() {
     if (selectableIds.length > remainingCapacity) {
       setNotice({
         type: "info",
-        title: `Izbranih je največ ${MAX_SELECTED} kontaktov.`,
+        title: "Izbranih je največ 25 kontaktov.",
         message:
-          `Na trenutni strani je več kontaktov, zato je sistem izbral prvih ${MAX_SELECTED}.`,
+          "Na trenutni strani je več kontaktov, zato je sistem izbral prvih 25.",
       });
     }
   }
@@ -588,7 +758,7 @@ export default function ContactsPage() {
       setNotice(null);
 
       const params = new URLSearchParams({
-        limit: String(pageSize),
+        limit: String(BULK_LIMIT),
         max_pages: String(MAX_PAGES),
         retry_failed: "false",
       });
@@ -680,7 +850,7 @@ export default function ContactsPage() {
           >
             {bulkLoading
               ? "Obdelujem kontakte …"
-              : `Obdelaj naslednjih ${pageSize}`}
+              : `Obdelaj naslednjih ${BULK_LIMIT}`}
           </button>
 
           <button
@@ -1051,55 +1221,21 @@ export default function ContactsPage() {
             </div>
 
             <div className="paginationBar">
-  <div
-    style={{
-      display: "flex",
-      alignItems: "center",
-      gap: "16px",
-      flexWrap: "wrap",
-    }}
-  >
-    <p className="paginationInfo">
-      Prikazujem{" "}
-      <strong>
-        {formatNumber(resultStart)}–
-        {formatNumber(resultEnd)}
-      </strong>{" "}
-      od{" "}
-      <strong>
-        {formatNumber(pagination.total)}
-      </strong>
-    </p>
+              <p className="paginationInfo">
+                Prikazujem{" "}
+                <strong>
+                  {formatNumber(resultStart)}–
+                  {formatNumber(resultEnd)}
+                </strong>{" "}
+                od{" "}
+                <strong>
+                  {formatNumber(
+                    pagination.total,
+                  )}
+                </strong>
+              </p>
 
-    <label
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "8px",
-      }}
-    >
-      <span className="muted">
-        Na stran:
-      </span>
-
-      <select
-        value={pageSize}
-        onChange={handlePageSizeChange}
-        disabled={loading || bulkLoading}
-      >
-        {PAGE_SIZE_OPTIONS.map((size) => (
-          <option
-            key={size}
-            value={size}
-          >
-            {size}
-          </option>
-        ))}
-      </select>
-    </label>
-  </div>
-
-  <div className="paginationControls">
+              <div className="paginationControls">
                 <button
                   type="button"
                   className="paginationButton"
@@ -1169,14 +1305,284 @@ export default function ContactsPage() {
         )}
       </section>
 
-      <EnrichmentDrawer
-        progress={bulkProgress}
-        percentage={progressPercentage}
-        onClose={() =>
-          setBulkProgress(initialBulkProgress)
-        }
-      />
+      {bulkProgress.total > 0 && (
+        <>
+          <div
+            onClick={() => {
+              if (!bulkProgress.active) {
+                setBulkProgress(initialBulkProgress);
+              }
+            }}
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 999,
+              background: "rgba(0, 0, 0, 0.42)",
+              backdropFilter: "blur(2px)",
+              opacity: bulkProgress.active ? 0.7 : 1,
+              pointerEvents: bulkProgress.active ? "none" : "auto",
+            }}
+          />
 
+          <aside
+            role="dialog"
+            aria-modal="true"
+            aria-label="Napredek masovnega iskanja"
+            style={{
+              position: "fixed",
+              top: 0,
+              right: 0,
+              zIndex: 1000,
+              width: "min(420px, 100vw)",
+              height: "100vh",
+              padding: "28px",
+              overflowY: "auto",
+              borderLeft: "1px solid rgba(255, 255, 255, 0.1)",
+              background:
+                "linear-gradient(180deg, rgba(23, 18, 38, 0.98), rgba(12, 10, 22, 0.99))",
+              boxShadow: "-24px 0 70px rgba(0, 0, 0, 0.45)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "24px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: "16px",
+              }}
+            >
+              <div>
+                <p className="eyebrow">ENRICHMENT JOB</p>
+                <h2 style={{ margin: "6px 0 8px" }}>
+                  {bulkProgress.active
+                    ? "Iskanje telefonskih številk"
+                    : "Iskanje je končano"}
+                </h2>
+                <p className="muted" style={{ margin: 0 }}>
+                  {bulkProgress.active
+                    ? "Rezultati se sproti zapisujejo med kontakte."
+                    : `Obdelanih je bilo ${bulkProgress.processed} kontaktov.`}
+                </p>
+              </div>
+
+              {!bulkProgress.active && (
+                <button
+                  type="button"
+                  className="ghostButton"
+                  onClick={() =>
+                    setBulkProgress(initialBulkProgress)
+                  }
+                  aria-label="Zapri panel"
+                  style={{
+                    minWidth: "42px",
+                    width: "42px",
+                    height: "42px",
+                    padding: 0,
+                    fontSize: "22px",
+                    lineHeight: 1,
+                  }}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+
+            <div
+              style={{
+                padding: "20px",
+                border: "1px solid rgba(255, 255, 255, 0.1)",
+                borderRadius: "18px",
+                background: "rgba(255, 255, 255, 0.045)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "baseline",
+                  gap: "16px",
+                  marginBottom: "14px",
+                }}
+              >
+                <strong style={{ fontSize: "32px" }}>
+                  {progressPercentage}%
+                </strong>
+
+                <span className="muted">
+                  {bulkProgress.processed} / {bulkProgress.total}
+                </span>
+              </div>
+
+              <div
+                style={{
+                  width: "100%",
+                  height: "12px",
+                  overflow: "hidden",
+                  borderRadius: "999px",
+                  background: "rgba(255, 255, 255, 0.08)",
+                }}
+              >
+                <div
+                  style={{
+                    height: "100%",
+                    width: `${progressPercentage}%`,
+                    borderRadius: "999px",
+                    background:
+                      "linear-gradient(90deg, #7c3aed, #a855f7)",
+                    transition: "width 300ms ease",
+                  }}
+                />
+              </div>
+            </div>
+
+            {bulkProgress.active &&
+              bulkProgress.currentEmail && (
+                <div
+                  style={{
+                    padding: "18px",
+                    borderRadius: "16px",
+                    border:
+                      "1px solid rgba(168, 85, 247, 0.28)",
+                    background: "rgba(168, 85, 247, 0.08)",
+                  }}
+                >
+                  <span
+                    className="muted"
+                    style={{
+                      display: "block",
+                      marginBottom: "7px",
+                      fontSize: "13px",
+                    }}
+                  >
+                    TRENUTNO OBDELUJEM
+                  </span>
+
+                  <strong
+                    style={{
+                      display: "block",
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    {bulkProgress.currentEmail}
+                  </strong>
+                </div>
+              )}
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "12px",
+              }}
+            >
+              {[
+                {
+                  label: "Najdeno",
+                  value: bulkProgress.matched,
+                  symbol: "✓",
+                },
+                {
+                  label: "Delno",
+                  value: bulkProgress.partialMatch,
+                  symbol: "~",
+                },
+                {
+                  label: "Ni najdeno",
+                  value: bulkProgress.notFound,
+                  symbol: "×",
+                },
+                {
+                  label: "Preskočeno",
+                  value: bulkProgress.skipped,
+                  symbol: "↷",
+                },
+                {
+                  label: "Napake",
+                  value: bulkProgress.failed,
+                  symbol: "!",
+                },
+                {
+                  label: "Obdelano",
+                  value: bulkProgress.processed,
+                  symbol: "#",
+                },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  style={{
+                    padding: "16px",
+                    borderRadius: "15px",
+                    border:
+                      "1px solid rgba(255, 255, 255, 0.08)",
+                    background: "rgba(255, 255, 255, 0.035)",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: "10px",
+                      marginBottom: "9px",
+                    }}
+                  >
+                    <span className="muted">
+                      {item.label}
+                    </span>
+
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        opacity: 0.72,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {item.symbol}
+                    </span>
+                  </div>
+
+                  <strong style={{ fontSize: "24px" }}>
+                    {item.value}
+                  </strong>
+                </div>
+              ))}
+            </div>
+
+            <div
+              style={{
+                marginTop: "auto",
+                paddingTop: "12px",
+              }}
+            >
+              {bulkProgress.active ? (
+                <p
+                  className="muted"
+                  style={{
+                    margin: 0,
+                    textAlign: "center",
+                    fontSize: "13px",
+                  }}
+                >
+                  Panel se zapre šele, ko je obdelava končana.
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setBulkProgress(initialBulkProgress)
+                  }
+                  style={{ width: "100%" }}
+                >
+                  Zapri
+                </button>
+              )}
+            </div>
+          </aside>
+        </>
+      )}
 
     </>
   );

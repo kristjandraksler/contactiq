@@ -1,27 +1,205 @@
-const stats = [
-  { label: "Vsi e-maili", value: "32.481" },
-  { label: "Ujemanja", value: "0" },
-  { label: "Delna ujemanja", value: "0" },
-  { label: "Ni najdeno", value: "0" },
-];
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+
+type Stats = {
+  emails_total: number;
+  pending: number;
+  matched: number;
+  partial: number;
+  not_found: number;
+  failed: number;
+  completed: number;
+  success_rate: number;
+};
+
+type Contact = {
+  id: string;
+  email: string;
+  domain: string;
+  phone: string | null;
+  confidence: number | null;
+  status: string;
+  created_at: string;
+};
+
+type ContactsResponse = {
+  items: Contact[];
+};
+
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
+
+function formatNumber(value: number): string {
+  return new Intl.NumberFormat("sl-SI").format(value);
+}
+
+function getStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    NEW: "Čaka",
+    MATCHED: "Najdeno",
+    PARTIAL_MATCH: "Delno ujemanje",
+    NOT_FOUND: "Ni najdeno",
+    FAILED: "Napaka",
+  };
+
+  return labels[status] ?? status;
+}
+
+function getStatusClass(status: string): string {
+  const classes: Record<string, string> = {
+    NEW: "statusNew",
+    MATCHED: "statusMatched",
+    PARTIAL_MATCH: "statusPartial",
+    NOT_FOUND: "statusNotFound",
+    FAILED: "statusFailed",
+  };
+
+  return classes[status] ?? "";
+}
 
 export default function Home() {
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  async function loadDashboard() {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const [statsResponse, contactsResponse] = await Promise.all([
+        fetch(`${API_URL}/stats`, {
+          cache: "no-store",
+        }),
+        fetch(`${API_URL}/contacts?page=1&page_size=8`, {
+          cache: "no-store",
+        }),
+      ]);
+
+      if (!statsResponse.ok) {
+        throw new Error("Statistik ni bilo mogoče naložiti.");
+      }
+
+      if (!contactsResponse.ok) {
+        throw new Error("Kontaktov ni bilo mogoče naložiti.");
+      }
+
+      const statsData: Stats = await statsResponse.json();
+      const contactsData: ContactsResponse =
+        await contactsResponse.json();
+
+      setStats(statsData);
+      setContacts(contactsData.items);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Pri nalaganju podatkov je prišlo do napake.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadDashboard();
+  }, []);
+
+  const statCards = [
+    {
+      label: "Vsi e-maili",
+      value: stats?.emails_total ?? 0,
+      helper: "Vsi kontakti v bazi",
+    },
+    {
+      label: "Čaka na obdelavo",
+      value: stats?.pending ?? 0,
+      helper: "Status NEW",
+    },
+    {
+      label: "Najdeno",
+      value: stats?.matched ?? 0,
+      helper: "Uspešna ujemanja",
+    },
+    {
+      label: "Delna ujemanja",
+      value: stats?.partial ?? 0,
+      helper: "Delno najdeni podatki",
+    },
+    {
+      label: "Ni najdeno",
+      value: stats?.not_found ?? 0,
+      helper: "Brez javnih rezultatov",
+    },
+    {
+      label: "Uspešnost",
+      value: `${stats?.success_rate ?? 0}%`,
+      helper: `${formatNumber(stats?.completed ?? 0)} obdelanih`,
+    },
+  ];
+
   return (
     <>
-      <header>
+      <header className="pageHeader">
         <div>
           <p className="eyebrow">INTERNO ORODJE</p>
           <h1>Pregled kontaktov</h1>
-          <p className="muted">Poišči javno objavljene telefonske številke za e-maile v bazi.</p>
+          <p className="muted">
+            Poišči javno objavljene telefonske številke za e-maile
+            v bazi.
+          </p>
         </div>
-        <button>Začni obogatitev</button>
+
+        <div className="headerActions">
+          <button
+            className="secondaryButton"
+            type="button"
+            onClick={() => void loadDashboard()}
+            disabled={loading}
+          >
+            Osveži podatke
+          </button>
+
+          <button type="button" disabled>
+            Začni obogatitev
+          </button>
+        </div>
       </header>
 
-      <div className="stats">
-        {stats.map((stat) => (
+      {error && (
+        <div className="alert alertError">
+          <div>
+            <strong>Podatkov ni bilo mogoče prikazati.</strong>
+            <p>{error}</p>
+          </div>
+
+          <button
+            type="button"
+            className="smallButton"
+            onClick={() => void loadDashboard()}
+          >
+            Poskusi znova
+          </button>
+        </div>
+      )}
+
+      <div className="stats statsSix">
+        {statCards.map((stat) => (
           <article key={stat.label}>
             <span>{stat.label}</span>
-            <strong>{stat.value}</strong>
+
+            <strong>
+              {loading
+                ? "—"
+                : typeof stat.value === "number"
+                  ? formatNumber(stat.value)
+                  : stat.value}
+            </strong>
+
+            <small>{stat.helper}</small>
           </article>
         ))}
       </div>
@@ -30,9 +208,73 @@ export default function Home() {
         <div className="panelTop">
           <div>
             <h2>Zadnji kontakti</h2>
-            <p className="muted">Trenutno so prikazani testni podatki.</p>
+            <p className="muted">
+              Zadnjih osem kontaktov, dodanih v bazo.
+            </p>
           </div>
+
+          <Link href="/contacts" className="textLink">
+            Poglej vse kontakte
+          </Link>
         </div>
+
+        {loading ? (
+          <div className="stateMessage">
+            <div className="spinner" />
+            <p>Nalaganje kontaktov …</p>
+          </div>
+        ) : contacts.length === 0 ? (
+          <div className="stateMessage">
+            <h3>Ni kontaktov</h3>
+            <p>Najprej uvozi e-maile v bazo.</p>
+          </div>
+        ) : (
+          <div className="tableWrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>E-mail</th>
+                  <th>Domena</th>
+                  <th>Telefon</th>
+                  <th>Status</th>
+                  <th>Confidence</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {contacts.map((contact) => (
+                  <tr key={contact.id}>
+                    <td>
+                      <strong className="emailCell">
+                        {contact.email}
+                      </strong>
+                    </td>
+
+                    <td>{contact.domain}</td>
+
+                    <td>{contact.phone ?? "—"}</td>
+
+                    <td>
+                      <span
+                        className={`statusBadge ${getStatusClass(
+                          contact.status,
+                        )}`}
+                      >
+                        {getStatusLabel(contact.status)}
+                      </span>
+                    </td>
+
+                    <td>
+                      {contact.confidence !== null
+                        ? `${contact.confidence}%`
+                        : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </>
   );

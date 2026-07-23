@@ -12,11 +12,11 @@ import {
 import EnrichmentDrawer from "./components/EnrichmentDrawer";
 import {
   API_URL,
-  DEFAULT_PAGE_SIZE,
-  PAGE_SIZE_OPTIONS,
+  BULK_LIMIT,
   initialBulkProgress,
   MAX_PAGES,
   MAX_SELECTED,
+  PAGE_SIZE,
   statusOptions,
 } from "./constants";
 import type {
@@ -40,13 +40,10 @@ import {
 export default function ContactsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
 
-  const [pageSize, setPageSize] =
-    useState(DEFAULT_PAGE_SIZE);
-
   const [pagination, setPagination] =
     useState<Pagination>({
       page: 1,
-      page_size: DEFAULT_PAGE_SIZE,
+      page_size: PAGE_SIZE,
       total: 0,
       total_pages: 0,
       has_previous: false,
@@ -87,7 +84,7 @@ export default function ContactsPage() {
 
       const params = new URLSearchParams({
         page: String(page),
-        page_size: String(pageSize),
+        page_size: String(PAGE_SIZE),
       });
 
       if (activeSearch.trim()) {
@@ -136,7 +133,7 @@ export default function ContactsPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeSearch, page, pageSize, status]);
+  }, [activeSearch, page, status]);
 
   useEffect(() => {
     void loadContacts();
@@ -204,15 +201,6 @@ export default function ContactsPage() {
     setPage(1);
     setNotice(null);
     setSelectedIds([]);
-  }
-
-  function handlePageSizeChange(
-    event: ChangeEvent<HTMLSelectElement>,
-  ) {
-    setPageSize(Number(event.target.value));
-    setPage(1);
-    setSelectedIds([]);
-    setNotice(null);
   }
 
   function toggleContactSelection(
@@ -283,9 +271,9 @@ export default function ContactsPage() {
     if (selectableIds.length > remainingCapacity) {
       setNotice({
         type: "info",
-        title: `Izbranih je največ ${MAX_SELECTED} kontaktov.`,
+        title: "Izbranih je največ 25 kontaktov.",
         message:
-          `Na trenutni strani je več kontaktov, zato je sistem izbral prvih ${MAX_SELECTED}.`,
+          "Na trenutni strani je več kontaktov, zato je sistem izbral prvih 25.",
       });
     }
   }
@@ -588,7 +576,7 @@ export default function ContactsPage() {
       setNotice(null);
 
       const params = new URLSearchParams({
-        limit: String(pageSize),
+        limit: String(BULK_LIMIT),
         max_pages: String(MAX_PAGES),
         retry_failed: "false",
       });
@@ -680,7 +668,7 @@ export default function ContactsPage() {
           >
             {bulkLoading
               ? "Obdelujem kontakte …"
-              : `Obdelaj naslednjih ${pageSize}`}
+              : `Obdelaj naslednjih ${BULK_LIMIT}`}
           </button>
 
           <button
@@ -1051,55 +1039,21 @@ export default function ContactsPage() {
             </div>
 
             <div className="paginationBar">
-  <div
-    style={{
-      display: "flex",
-      alignItems: "center",
-      gap: "16px",
-      flexWrap: "wrap",
-    }}
-  >
-    <p className="paginationInfo">
-      Prikazujem{" "}
-      <strong>
-        {formatNumber(resultStart)}–
-        {formatNumber(resultEnd)}
-      </strong>{" "}
-      od{" "}
-      <strong>
-        {formatNumber(pagination.total)}
-      </strong>
-    </p>
+              <p className="paginationInfo">
+                Prikazujem{" "}
+                <strong>
+                  {formatNumber(resultStart)}–
+                  {formatNumber(resultEnd)}
+                </strong>{" "}
+                od{" "}
+                <strong>
+                  {formatNumber(
+                    pagination.total,
+                  )}
+                </strong>
+              </p>
 
-    <label
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "8px",
-      }}
-    >
-      <span className="muted">
-        Na stran:
-      </span>
-
-      <select
-        value={pageSize}
-        onChange={handlePageSizeChange}
-        disabled={loading || bulkLoading}
-      >
-        {PAGE_SIZE_OPTIONS.map((size) => (
-          <option
-            key={size}
-            value={size}
-          >
-            {size}
-          </option>
-        ))}
-      </select>
-    </label>
-  </div>
-
-  <div className="paginationControls">
+              <div className="paginationControls">
                 <button
                   type="button"
                   className="paginationButton"
