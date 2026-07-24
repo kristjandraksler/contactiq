@@ -11,17 +11,20 @@ from app.services.providers import clean_domain, is_public_email_domain
 MATCHED_TTL = timedelta(days=30)
 NOT_FOUND_TTL = timedelta(days=7)
 
+
 COMPANY_CACHE_FIELDS = (
     "id,"
     "domain,"
     "website,"
     "phone,"
-    "confidence,"
-    "source_url,"
-    "pages_scanned,"
-    "scan_duration_ms,"
-    "enrichment_status,"
-    "verified_at"
+    "phone_status,"
+    "phone_confidence,"
+    "phone_source_url,"
+    "phone_checked_at,"
+    "phone_scan_duration_ms,"
+    "phone_pages_scanned,"
+    "phone_candidates,"
+    "last_crawled_at"
 )
 
 
@@ -80,41 +83,57 @@ def get_cached_company_result(
         return None, None
 
     company = rows[0]
+    company_id = (
+        str(company.get("id"))
+        if company.get("id")
+        else None
+    )
+
     status = str(
-        company.get("enrichment_status") or ""
+        company.get("phone_status") or ""
     ).upper()
 
-    verified_at = _parse_datetime(
-        company.get("verified_at")
+    checked_at = _parse_datetime(
+        company.get("phone_checked_at")
     )
+
     ttl = _cache_ttl(status)
 
-    if not verified_at or ttl is None:
-        return None, str(company.get("id"))
+    if not checked_at or ttl is None:
+        return None, company_id
 
-    if datetime.now(timezone.utc) - verified_at > ttl:
-        return None, str(company.get("id"))
+    if datetime.now(timezone.utc) - checked_at > ttl:
+        return None, company_id
 
     phone = company.get("phone")
 
     if status == "MATCHED" and not phone:
-        return None, str(company.get("id"))
+        return None, company_id
+
+    raw_candidates = company.get("phone_candidates")
+    candidates = (
+        raw_candidates
+        if isinstance(raw_candidates, list)
+        else []
+    )
 
     result = FinderResult(
         status=status,
         website=company.get("website"),
         phone=str(phone) if phone else None,
-        confidence=company.get("confidence"),
-        source_url=company.get("source_url"),
+        confidence=company.get("phone_confidence"),
+        source_url=company.get("phone_source_url"),
         pages_scanned=int(
-            company.get("pages_scanned") or 0
+            company.get("phone_pages_scanned") or 0
         ),
-        scan_duration_ms=0,
-        candidates=[],
+        scan_duration_ms=int(
+            company.get("phone_scan_duration_ms") or 0
+        ),
+        candidates=candidates,
         error=None,
     )
 
-    return result, str(company.get("id"))
+    return result, company_id
 
 
 def save_company_result(
@@ -131,6 +150,8 @@ def save_company_result(
     ):
         return None
 
+    now = datetime.now(timezone.utc).isoformat()
+
     payload: dict[str, Any] = {
         "domain": domain,
         "website": result.website,
@@ -139,25 +160,30 @@ def save_company_result(
             if result.status == "MATCHED"
             else None
         ),
-        "confidence": (
+        "phone_status": result.status,
+        "phone_confidence": (
             result.confidence
             if result.status == "MATCHED"
             else None
         ),
-        "source_url": (
+        "phone_source_url": (
             result.source_url
             if result.status == "MATCHED"
             else None
         ),
-        "pages_scanned": result.pages_scanned,
-        "scan_duration_ms": result.scan_duration_ms,
-        "enrichment_status": result.status,
-        "verified_at": datetime.now(
-            timezone.utc
-        ).isoformat(),
-        "last_crawled_at": datetime.now(
-            timezone.utc
-        ).isoformat(),
+        "phone_checked_at": now,
+        "phone_scan_duration_ms": (
+            result.scan_duration_ms
+        ),
+        "phone_pages_scanned": (
+            result.pages_scanned
+        ),
+        "phone_candidates": (
+            result.candidates
+            if result.candidates
+            else []
+        ),
+        "last_crawled_at": now,
     }
 
     supabase = get_supabase()
@@ -173,8 +199,8 @@ def save_company_result(
 
     rows = response.data or []
 
-    if rows:
-        return str(rows[0].get("id"))
+    if rows and rows[0].get("id"):
+        return str(rows[0]["id"])
 
     lookup = (
         supabase.table("companies")
@@ -189,6 +215,6 @@ def save_company_result(
     if not lookup_rows:
         return None
 
-    return str(lookup_rows[0].get("id"))
+    company_id = lookup_rows[0].get("id")
 
-
+    return str(company_id) if company_id else None
