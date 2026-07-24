@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { getDisplayStatus, getStatusClass, getStatusLabel, isPublicEmailDomain } from "./contacts/utils";
+
 type Stats = {
   emails_total: number;
   pending: number;
@@ -26,6 +28,10 @@ type Contact = {
 
 type ContactsResponse = {
   items: Contact[];
+  pagination?: {
+    page: number;
+    total_pages: number;
+  };
 };
 
 const API_URL =
@@ -35,52 +41,10 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat("sl-SI").format(value);
 }
 
-const PUBLIC_EMAIL_DOMAINS = new Set([
-  "gmail.com", "googlemail.com", "outlook.com", "hotmail.com",
-  "live.com", "msn.com", "yahoo.com", "icloud.com", "me.com",
-  "mac.com", "aol.com", "proton.me", "protonmail.com",
-  "gmx.com", "gmx.net", "mail.com", "zoho.com",
-  "telemach.net", "siol.net",
-]);
-
-function getDisplayStatus(contact: Contact): string {
-  if (contact.phone) return "MATCHED";
-
-  if (
-    ["PARTIAL_MATCH", "NOT_FOUND", "EMAIL_FOUND", "SKIPPED_FREE_EMAIL"].includes(contact.status) ||
-    (contact.status === "FAILED" && PUBLIC_EMAIL_DOMAINS.has(contact.domain.toLowerCase()))
-  ) {
-    return "NO_PHONE";
-  }
-
-  return contact.status;
-}
-
-function getStatusLabel(status: string): string {
-  const labels: Record<string, string> = {
-    NEW: "Čaka",
-    MATCHED: "Telefon najden",
-    NO_PHONE: "Brez telefona",
-    FAILED: "Napaka",
-  };
-
-  return labels[status] ?? status;
-}
-
-function getStatusClass(status: string): string {
-  const classes: Record<string, string> = {
-    NEW: "statusNew",
-    MATCHED: "statusMatched",
-    NO_PHONE: "statusNotFound",
-    FAILED: "statusFailed",
-  };
-
-  return classes[status] ?? "";
-}
-
 export default function Home() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [publicProviderFailures, setPublicProviderFailures] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,11 +53,14 @@ export default function Home() {
       setLoading(true);
       setError(null);
 
-      const [statsResponse, contactsResponse] = await Promise.all([
+      const [statsResponse, contactsResponse, failedContactsResponse] = await Promise.all([
         fetch(`${API_URL}/stats`, {
           cache: "no-store",
         }),
         fetch(`${API_URL}/contacts?page=1&page_size=8`, {
+          cache: "no-store",
+        }),
+        fetch(`${API_URL}/contacts?page=1&page_size=250&status=FAILED`, {
           cache: "no-store",
         }),
       ]);
@@ -110,8 +77,42 @@ export default function Home() {
       const contactsData: ContactsResponse =
         await contactsResponse.json();
 
+      let publicFailureCount = 0;
+
+      if (failedContactsResponse.ok) {
+        const firstFailedPage: ContactsResponse =
+          await failedContactsResponse.json();
+
+        publicFailureCount += firstFailedPage.items.filter((contact) =>
+          isPublicEmailDomain(contact.domain),
+        ).length;
+
+        const totalFailedPages = firstFailedPage.pagination?.total_pages ?? 1;
+
+        if (totalFailedPages > 1) {
+          const remainingPages = await Promise.all(
+            Array.from({ length: totalFailedPages - 1 }, (_, index) =>
+              fetch(
+                `${API_URL}/contacts?page=${index + 2}&page_size=250&status=FAILED`,
+                { cache: "no-store" },
+              ),
+            ),
+          );
+
+          for (const response of remainingPages) {
+            if (!response.ok) continue;
+
+            const pageData: ContactsResponse = await response.json();
+            publicFailureCount += pageData.items.filter((contact) =>
+              isPublicEmailDomain(contact.domain),
+            ).length;
+          }
+        }
+      }
+
       setStats(statsData);
       setContacts(contactsData.items);
+      setPublicProviderFailures(publicFailureCount);
     } catch (err) {
       setError(
         err instanceof Error
@@ -126,6 +127,12 @@ export default function Home() {
   useEffect(() => {
     void loadDashboard();
   }, []);
+
+  const realFailures = Math.max(0, (stats?.failed ?? 0) - publicProviderFailures);
+  const withoutPhone =
+    (stats?.partial ?? 0) +
+    (stats?.not_found ?? 0) +
+    publicProviderFailures;
 
   const statCards = [
     {
@@ -145,12 +152,12 @@ export default function Home() {
     },
     {
       label: "Brez telefona",
-      value: (stats?.partial ?? 0) + (stats?.not_found ?? 0),
+      value: withoutPhone,
       helper: "Telefon ni bil najden",
     },
     {
       label: "Napake",
-      value: stats?.failed ?? 0,
+      value: realFailures,
       helper: "Dejanske tehnične napake",
     },
     {
@@ -275,7 +282,11 @@ export default function Home() {
 
                     <td>
                       {(() => {
-                        const displayStatus = getDisplayStatus(contact);
+                        const displayStatus = getDisplayStatus(
+                          contact.status,
+                          contact.phone,
+                          contact.domain,
+                        );
 
                         return (
                           <span
