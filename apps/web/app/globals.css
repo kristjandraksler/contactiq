@@ -580,3 +580,121 @@ tbody tr:last-child td {
     justify-content: space-between;
   }
 }
+
+/* Settings page */
+
+.settingsList {
+  display: grid;
+}
+
+.settingsRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--line);
+}
+
+.settingsRow:last-child {
+  border-bottom: 0;
+}
+
+.settingsRow > span:first-child {
+  font-weight: 700;
+}
+
+.systemStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.systemStatusOk {
+  color: #087443;
+}
+
+.systemStatusError {
+  color: var(--danger);
+}
+
+.statusDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 4px rgba(24, 182, 107, 0.1);
+}
+
+.systemStatusError .statusDot {
+  box-shadow: 0 0 0 4px rgba(201, 63, 63, 0.1);
+}
+
+.settingsColumns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.settingsCard {
+  margin-top: 0;
+  padding: 22px;
+}
+
+.detailsList {
+  display: grid;
+  gap: 0;
+  margin: 24px 0 0;
+}
+
+.detailsList > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.detailsList > div:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.detailsList dt {
+  color: var(--muted);
+}
+
+.detailsList dd {
+  margin: 0;
+  font-weight: 800;
+  text-align: right;
+}
+
+.statusPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+@media (max-width: 900px) {
+  .settingsColumns {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .settingsRow,
+  .detailsList > div {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .detailsList dd {
+    text-align: left;
+  }
+}
