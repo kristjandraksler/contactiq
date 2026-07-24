@@ -1,59 +1,37 @@
-# ContactIQ
+# ContactIQ Phone Engine v2
 
-Interno orodje za obogatitev poslovnih e-poštnih naslovov z javno objavljenimi telefonskimi številkami.
+Zip contains replacement files for:
 
-## Arhitektura
+- `apps/api/app/services/phone_parser.py`
+- `apps/api/app/services/phone_finder.py`
+- `apps/api/app/services/website_crawler.py`
+- `apps/api/app/services/providers.py`
 
-- `apps/web` – Next.js uporabniški vmesnik
-- `apps/api` – FastAPI
-- `apps/worker` – Python worker
-- `supabase/migrations` – podatkovni model
-- `docs` – arhitektura in naslednji koraki
+## Main improvements
 
-## Lokalni zagon
+- positive/negative context scoring around phone numbers
+- fax, cookie, agency and hosting noise penalties
+- DOM cleanup before visible-text parsing
+- footer score reduced and footer/body duplicate counting removed
+- source-diversity and page-diversity bonuses
+- evidence attached to every candidate
+- confidence v2 based on independent signals
+- URL canonicalization and crawler noise-path filtering
 
-### 1. Frontend
+## Install
 
-```bash
-cd apps/web
-npm install
-npm run dev
-```
-
-Odpri `http://localhost:3000`.
-
-### 2. API
+Copy the four files over the existing files, then run:
 
 ```bash
-cd apps/api
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+python -m compileall apps/api/app/services
 ```
 
-### 3. Worker
+Commit and push from the monorepo root:
 
 ```bash
-cd apps/worker
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-python -m worker.main
+git add apps/api/app/services
+git commit -m "Upgrade phone matching engine v2"
+git push origin main
 ```
 
-## Supabase
-
-1. Ustvari Supabase projekt.
-2. Odpri SQL Editor.
-3. Zaženi `supabase/migrations/001_initial_schema.sql`.
-4. V `.env` datoteke vnesi Supabase URL in ključe.
-
-## V1 cilj
-
-1. Uvoz obstoječe baze e-mailov.
-2. Združevanje po domenah.
-3. Pregled javnih strani podjetja.
-4. Iskanje telefonskih številk.
-5. Povezovanje številke z e-mailom.
-6. Ocena ujemanja in shranjevanje vira.
+No database migration is required. Existing top-level `FinderResult` fields remain unchanged. Candidate objects now include additional fields: `source_diversity`, `page_diversity`, and `evidence`.

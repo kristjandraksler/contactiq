@@ -6,12 +6,62 @@ from dataclasses import dataclass
 from typing import Any, Iterable
 
 import phonenumbers
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Comment, Tag
 from phonenumbers import PhoneNumberFormat
 
 PHONE_PATTERN = re.compile(
     r"""(?:(?:\+|00)\s?\d{1,3}|0)[\s()./-]*\d(?:[\s()./-]*\d){6,13}""",
     re.VERBOSE,
+)
+
+POSITIVE_CONTEXT: dict[str, int] = {
+    "telefon": 24,
+    "telephone": 24,
+    "phone": 24,
+    "tel.": 18,
+    "kontakt": 22,
+    "contact": 22,
+    "pokličite": 22,
+    "poklicite": 22,
+    "call us": 22,
+    "centrala": 18,
+    "reception": 16,
+    "recepcija": 16,
+    "office": 12,
+    "pisarna": 12,
+    "prodaja": 12,
+    "sales": 12,
+}
+
+NEGATIVE_CONTEXT: dict[str, int] = {
+    "fax": -90,
+    "faks": -90,
+    "telefaks": -90,
+    "powered by": -75,
+    "website by": -75,
+    "web design": -75,
+    "izdelava spletne": -75,
+    "izdelava strani": -75,
+    "digital agency": -65,
+    "marketing agency": -55,
+    "hosting": -55,
+    "cookie": -50,
+    "consent": -45,
+    "gdpr": -45,
+    "analytics": -40,
+    "privacy policy": -35,
+    "politika zasebnosti": -35,
+}
+
+NOISE_TAGS = ("script", "style", "noscript", "svg", "template", "iframe", "canvas")
+NOISE_ATTRIBUTE_KEYWORDS = (
+    "cookie",
+    "consent",
+    "gdpr",
+    "privacy-banner",
+    "privacy_banner",
+    "cookiebot",
+    "onetrust",
 )
 
 
@@ -21,6 +71,7 @@ class ExtractedPhone:
     score: int
     source: str
     from_tel_link: bool = False
+    context_signals: tuple[str, ...] = ()
 
 
 def default_region(domain: str) -> str:
@@ -32,7 +83,8 @@ def default_region(domain: str) -> str:
         ".nl": "NL", ".be": "BE", ".gb": "GB", ".uk": "GB",
         ".ie": "IE", ".us": "US", ".ca": "CA", ".au": "AU",
     }
-    return next((region for suffix, region in regions.items() if domain.endswith(suffix)), "SI")
+    lowered = domain.lower().rstrip(".")
+    return next((region for suffix, region in regions.items() if lowered.endswith(suffix)), "SI")
 
 
 def normalize_phone(value: str, region: str) -> str | None:
@@ -73,12 +125,83 @@ def _walk_json(value: Any) -> Iterable[tuple[str, str]]:
 def _page_bonus(page_url: str) -> int:
     lowered = page_url.lower()
     if "kontakt" in lowered or "contact" in lowered:
-        return 35
+        return 40
     if "impressum" in lowered or "imprint" in lowered:
-        return 25
-    if "about" in lowered or "o-nas" in lowered:
+        return 28
+    if "about" in lowered or "o-nas" in lowered or "o-podjetju" in lowered:
         return 20
     return 5
+
+
+def _context_score(text: str) -> tuple[int, tuple[str, ...]]:
+    lowered = " ".join(text.lower().split())
+    score = 0
+    signals: list[str] = []
+
+    # Apply only the strongest positive and strongest negative hit. This avoids
+    # runaway scores when several synonyms occur in the same short block.
+    positive_hits = [(weight, phrase) for phrase, weight in POSITIVE_CONTEXT.items() if phrase in lowered]
+    negative_hits = [(weight, phrase) for phrase, weight in NEGATIVE_CONTEXT.items() if phrase in lowered]
+
+    if positive_hits:
+        weight, phrase = max(positive_hits)
+        score += weight
+        signals.append(f"positive_context:{phrase}")
+    if negative_hits:
+        weight, phrase = min(negative_hits)
+        score += weight
+        signals.append(f"negative_context:{phrase}")
+
+    return score, tuple(signals)
+
+
+def _element_context(element: Tag, limit: int = 260) -> str:
+    parent = element.parent if isinstance(element.parent, Tag) else element
+    text = parent.get_text(" ", strip=True)
+    return text[:limit]
+
+
+def _remove_noise(soup: BeautifulSoup) -> None:
+    for comment in soup.find_all(string=lambda value: isinstance(value, Comment)):
+        comment.extract()
+
+    for tag in soup.find_all(NOISE_TAGS):
+        tag.decompose()
+
+    for element in list(soup.find_all(True)):
+        if not isinstance(element, Tag) or element.parent is None:
+            continue
+        element_id = str(element.get("id") or "")
+        classes = element.get("class") or []
+        class_text = " ".join(str(value) for value in classes)
+        marker = f"{element_id} {class_text}".lower()
+        if any(keyword in marker for keyword in NOISE_ATTRIBUTE_KEYWORDS):
+            element.decompose()
+
+
+def _append_candidate(
+    found: list[ExtractedPhone],
+    raw_phone: str,
+    region: str,
+    base_score: int,
+    page_bonus: int,
+    source: str,
+    context: str = "",
+    from_tel_link: bool = False,
+) -> None:
+    phone = normalize_phone(raw_phone, region)
+    if not phone:
+        return
+    context_delta, signals = _context_score(context)
+    found.append(
+        ExtractedPhone(
+            phone=phone,
+            score=max(base_score + page_bonus + context_delta, 1),
+            source=source,
+            from_tel_link=from_tel_link,
+            context_signals=signals,
+        )
+    )
 
 
 def extract_phones(html: str, page_url: str, domain: str) -> list[ExtractedPhone]:
@@ -87,13 +210,22 @@ def extract_phones(html: str, page_url: str, domain: str) -> list[ExtractedPhone
     page_bonus = _page_bonus(page_url)
     found: list[ExtractedPhone] = []
 
-    # 1. Explicit tel: links are the strongest HTML signal.
+    # 1. Explicit tel: links are a strong, deliberate signal.
+    tel_anchors: list[Tag] = []
     for anchor in soup.find_all("a", href=True):
         href = str(anchor.get("href") or "").strip()
         if href.lower().startswith("tel:"):
-            phone = normalize_phone(href, region)
-            if phone:
-                found.append(ExtractedPhone(phone, 125 + page_bonus, "tel_link", True))
+            _append_candidate(
+                found,
+                href,
+                region,
+                base_score=125,
+                page_bonus=page_bonus,
+                source="tel_link",
+                context=_element_context(anchor),
+                from_tel_link=True,
+            )
+            tel_anchors.append(anchor)
 
     # 2. Schema.org / JSON-LD Organization and LocalBusiness data.
     for script in soup.find_all("script", attrs={"type": "application/ld+json"}):
@@ -105,28 +237,72 @@ def extract_phones(html: str, page_url: str, domain: str) -> list[ExtractedPhone
         except (json.JSONDecodeError, TypeError):
             continue
         for _, raw_phone in _walk_json(payload):
-            phone = normalize_phone(raw_phone, region)
-            if phone:
-                found.append(ExtractedPhone(phone, 150 + page_bonus, "schema_org"))
+            _append_candidate(
+                found,
+                raw_phone,
+                region,
+                base_score=150,
+                page_bonus=page_bonus,
+                source="schema_org",
+                context="schema.org telephone contact",
+            )
 
     # 3. Microdata and generic telephone metadata.
-    for element in soup.select('[itemprop="telephone"], meta[name="telephone"], meta[property="business:contact_data:phone_number"]'):
+    selector = (
+        '[itemprop="telephone"], meta[name="telephone"], '
+        'meta[property="business:contact_data:phone_number"]'
+    )
+    for element in soup.select(selector):
         raw_phone = str(element.get("content") or element.get_text(" ", strip=True) or "")
-        phone = normalize_phone(raw_phone, region)
-        if phone:
-            found.append(ExtractedPhone(phone, 135 + page_bonus, "microdata"))
+        _append_candidate(
+            found,
+            raw_phone,
+            region,
+            base_score=135,
+            page_bonus=page_bonus,
+            source="microdata",
+            context=_element_context(element),
+        )
 
-    # 4. Footer text is usually a company-level contact and ranks above body text.
-    for footer in soup.find_all("footer"):
-        for match in PHONE_PATTERN.finditer(footer.get_text(" ", strip=True)):
-            phone = normalize_phone(match.group(0), region)
-            if phone:
-                found.append(ExtractedPhone(phone, 90 + page_bonus, "footer"))
+    # Remove noisy DOM areas only after structured data and tel links are read.
+    _remove_noise(soup)
+
+    # Avoid counting tel-link text again as generic visible text.
+    for anchor in tel_anchors:
+        if anchor.parent is not None:
+            anchor.decompose()
+
+    # 4. Footer is useful but less trustworthy than explicit structured data.
+    for footer in list(soup.find_all("footer")):
+        footer_text = footer.get_text(" ", strip=True)
+        for match in PHONE_PATTERN.finditer(footer_text):
+            start, end = match.span()
+            context = footer_text[max(0, start - 120):min(len(footer_text), end + 120)]
+            _append_candidate(
+                found,
+                match.group(0),
+                region,
+                base_score=55,
+                page_bonus=page_bonus,
+                source="footer",
+                context=context,
+            )
+        # Prevent footer numbers being counted a second time as body text.
+        footer.decompose()
 
     # 5. Visible body text fallback.
-    for match in PHONE_PATTERN.finditer(soup.get_text(" ", strip=True)):
-        phone = normalize_phone(match.group(0), region)
-        if phone:
-            found.append(ExtractedPhone(phone, 35 + page_bonus, "visible_text"))
+    body_text = soup.get_text(" ", strip=True)
+    for match in PHONE_PATTERN.finditer(body_text):
+        start, end = match.span()
+        context = body_text[max(0, start - 120):min(len(body_text), end + 120)]
+        _append_candidate(
+            found,
+            match.group(0),
+            region,
+            base_score=35,
+            page_bonus=page_bonus,
+            source="visible_text",
+            context=context,
+        )
 
     return found
