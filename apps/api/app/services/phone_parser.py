@@ -34,23 +34,23 @@ POSITIVE_CONTEXT: dict[str, int] = {
 }
 
 NEGATIVE_CONTEXT: dict[str, int] = {
-    "fax": -90,
-    "faks": -90,
-    "telefaks": -90,
-    "powered by": -75,
-    "website by": -75,
-    "web design": -75,
-    "izdelava spletne": -75,
-    "izdelava strani": -75,
-    "digital agency": -65,
-    "marketing agency": -55,
-    "hosting": -55,
-    "cookie": -50,
-    "consent": -45,
-    "gdpr": -45,
-    "analytics": -40,
-    "privacy policy": -35,
-    "politika zasebnosti": -35,
+    "fax": -20,
+    "faks": -20,
+    "telefaks": -20,
+    "powered by": -20,
+    "website by": -20,
+    "web design": -20,
+    "izdelava spletne": -20,
+    "izdelava strani": -20,
+    "digital agency": -18,
+    "marketing agency": -15,
+    "hosting": -15,
+    "cookie": -12,
+    "consent": -12,
+    "gdpr": -12,
+    "analytics": -10,
+    "privacy policy": -8,
+    "politika zasebnosti": -8,
 }
 
 NOISE_TAGS = ("script", "style", "noscript", "svg", "template", "iframe", "canvas")
@@ -58,9 +58,7 @@ NOISE_ATTRIBUTE_KEYWORDS = (
     "cookie",
     "consent",
     "gdpr",
-    "privacy-banner",
-    "privacy_banner",
-    "cookiebot",
+        "cookiebot",
     "onetrust",
 )
 
@@ -155,7 +153,7 @@ def _context_score(text: str) -> tuple[int, tuple[str, ...]]:
     return score, tuple(signals)
 
 
-def _element_context(element: Tag, limit: int = 260) -> str:
+def _element_context(element: Tag, limit: int = 90) -> str:
     parent = element.parent if isinstance(element.parent, Tag) else element
     text = parent.get_text(" ", strip=True)
     return text[:limit]
@@ -193,10 +191,13 @@ def _append_candidate(
     if not phone:
         return
     context_delta, signals = _context_score(context)
+    if source in {'schema_org','tel_link'}:
+        context_delta=max(context_delta,0)
+        signals=tuple(s for s in signals if not s.startswith('negative_context:'))
     found.append(
         ExtractedPhone(
             phone=phone,
-            score=max(base_score + page_bonus + context_delta, 1),
+            score=max(base_score + page_bonus + max(min(context_delta,10),-20), 1),
             source=source,
             from_tel_link=from_tel_link,
             context_signals=signals,
