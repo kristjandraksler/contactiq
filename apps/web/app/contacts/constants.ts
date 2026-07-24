@@ -32,8 +32,8 @@ export const initialBulkProgress: BulkProgress = {
 export const statusOptions = [
   { value: "", label: "Vsi statusi" },
   { value: "NEW", label: "Čaka" },
-  { value: "MATCHED", label: "Najdeno" },
-  { value: "PARTIAL_MATCH", label: "Delno ujemanje" },
-  { value: "NOT_FOUND", label: "Ni najdeno" },
+  { value: "MATCHED", label: "Telefon najden" },
+  { value: "PARTIAL_MATCH", label: "Brez telefona — javni e-mail" },
+  { value: "NOT_FOUND", label: "Brez telefona — ni najdeno" },
   { value: "FAILED", label: "Napaka" },
 ];

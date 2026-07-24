@@ -31,6 +31,7 @@ import type {
 import {
   formatDate,
   formatNumber,
+  getDisplayStatus,
   getPageNumbers,
   getStatusClass,
   getStatusLabel,
@@ -567,10 +568,8 @@ export default function ContactsPage() {
           : "success",
       title: `Obdelanih kontaktov: ${contactsToProcess.length}`,
       message: [
-        `najdeno ${matched}`,
-        `delno ${partialMatch}`,
-        `ni najdeno ${notFound}`,
-        `preskočeno ${skipped}`,
+        `telefon najden ${matched}`,
+        `brez telefona ${partialMatch + notFound + skipped}`,
         `napake ${failed}`,
       ].join(" · "),
     });
@@ -655,8 +654,7 @@ export default function ContactsPage() {
           <p className="eyebrow">KONTAKTI</p>
           <h1>Kontakti</h1>
           <p className="muted">
-            Pregled e-mailov, telefonov in kakovosti
-            ujemanja.
+            Pregled kontaktov in najdenih telefonskih številk.
           </p>
         </div>
 
@@ -989,17 +987,25 @@ export default function ContactsPage() {
                         </td>
 
                         <td>
-                          <span
-                            className={`statusBadge ${getStatusClass(
+                          {(() => {
+                            const displayStatus = getDisplayStatus(
                               contact.status,
-                            )}`}
-                          >
-                            {isEnriching
-                              ? "Obdelujem"
-                              : getStatusLabel(
-                                  contact.status,
-                                )}
-                          </span>
+                              contact.phone,
+                              contact.domain,
+                            );
+
+                            return (
+                              <span
+                                className={`statusBadge ${getStatusClass(
+                                  displayStatus,
+                                )}`}
+                              >
+                                {isEnriching
+                                  ? "Obdelujem"
+                                  : getStatusLabel(displayStatus)}
+                              </span>
+                            );
+                          })()}
                         </td>
 
                         <td>

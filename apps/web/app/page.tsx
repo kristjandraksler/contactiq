@@ -35,12 +35,32 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat("sl-SI").format(value);
 }
 
+const PUBLIC_EMAIL_DOMAINS = new Set([
+  "gmail.com", "googlemail.com", "outlook.com", "hotmail.com",
+  "live.com", "msn.com", "yahoo.com", "icloud.com", "me.com",
+  "mac.com", "aol.com", "proton.me", "protonmail.com",
+  "gmx.com", "gmx.net", "mail.com", "zoho.com",
+  "telemach.net", "siol.net",
+]);
+
+function getDisplayStatus(contact: Contact): string {
+  if (contact.phone) return "MATCHED";
+
+  if (
+    ["PARTIAL_MATCH", "NOT_FOUND", "EMAIL_FOUND", "SKIPPED_FREE_EMAIL"].includes(contact.status) ||
+    (contact.status === "FAILED" && PUBLIC_EMAIL_DOMAINS.has(contact.domain.toLowerCase()))
+  ) {
+    return "NO_PHONE";
+  }
+
+  return contact.status;
+}
+
 function getStatusLabel(status: string): string {
   const labels: Record<string, string> = {
     NEW: "Čaka",
-    MATCHED: "Najdeno",
-    PARTIAL_MATCH: "Delno ujemanje",
-    NOT_FOUND: "Ni najdeno",
+    MATCHED: "Telefon najden",
+    NO_PHONE: "Brez telefona",
     FAILED: "Napaka",
   };
 
@@ -51,8 +71,7 @@ function getStatusClass(status: string): string {
   const classes: Record<string, string> = {
     NEW: "statusNew",
     MATCHED: "statusMatched",
-    PARTIAL_MATCH: "statusPartial",
-    NOT_FOUND: "statusNotFound",
+    NO_PHONE: "statusNotFound",
     FAILED: "statusFailed",
   };
 
@@ -120,19 +139,19 @@ export default function Home() {
       helper: "Status NEW",
     },
     {
-      label: "Najdeno",
+      label: "Telefon najden",
       value: stats?.matched ?? 0,
-      helper: "Uspešna ujemanja",
+      helper: "Kontakti z najdeno številko",
     },
     {
-      label: "Delna ujemanja",
-      value: stats?.partial ?? 0,
-      helper: "Delno najdeni podatki",
+      label: "Brez telefona",
+      value: (stats?.partial ?? 0) + (stats?.not_found ?? 0),
+      helper: "Telefon ni bil najden",
     },
     {
-      label: "Ni najdeno",
-      value: stats?.not_found ?? 0,
-      helper: "Brez javnih rezultatov",
+      label: "Napake",
+      value: stats?.failed ?? 0,
+      helper: "Dejanske tehnične napake",
     },
     {
       label: "Uspešnost",
@@ -255,13 +274,19 @@ export default function Home() {
                     <td>{contact.phone ?? "—"}</td>
 
                     <td>
-                      <span
-                        className={`statusBadge ${getStatusClass(
-                          contact.status,
-                        )}`}
-                      >
-                        {getStatusLabel(contact.status)}
-                      </span>
+                      {(() => {
+                        const displayStatus = getDisplayStatus(contact);
+
+                        return (
+                          <span
+                            className={`statusBadge ${getStatusClass(
+                              displayStatus,
+                            )}`}
+                          >
+                            {getStatusLabel(displayStatus)}
+                          </span>
+                        );
+                      })()}
                     </td>
 
                     <td>
