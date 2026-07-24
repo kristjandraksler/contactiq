@@ -1,3 +1,4 @@
+from app.routes.system import router as system_router
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes.contacts import router as contacts_router
@@ -16,6 +17,7 @@ app.include_router(stats_router)
 app.include_router(enrichment_router)
 app.include_router(contacts_router)
 app.include_router(leads_router)
+app.include_router(system_router)
 
 app.add_middleware(
     CORSMiddleware,
