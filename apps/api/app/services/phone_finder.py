@@ -11,6 +11,14 @@ from .providers import clean_domain, is_public_email_domain
 from .website_crawler import crawl_company_website
 
 
+# Debug se izpisuje samo za navedene domene.
+# Ko zaključimo diagnostiko, lahko množico izprazniš:
+# DEBUG_DOMAINS: set[str] = set()
+DEBUG_DOMAINS: set[str] = {
+    "letko.net",
+}
+
+
 @dataclass
 class PhoneCandidate:
     phone: str
@@ -40,69 +48,144 @@ class FinderResult:
         return asdict(self)
 
 
+def _debug_enabled(domain: str) -> bool:
+    return domain.lower() in DEBUG_DOMAINS
+
+
+def _debug(domain: str, *values: object) -> None:
+    if _debug_enabled(domain):
+        print("[PHONE FINDER DEBUG]", *values, flush=True)
+
+
 def _page_label(url: str) -> str:
     path = (urlparse(url).path or "/").lower().rstrip("/") or "/"
+
     if "kontakt" in path or "contact" in path:
         return "contact_page"
+
     if "impressum" in path or "imprint" in path:
         return "imprint_page"
-    if "about" in path or "o-nas" in path or "o-podjetju" in path:
+
+    if (
+        "about" in path
+        or "o-nas" in path
+        or "o-podjetju" in path
+    ):
         return "about_page"
+
     if path == "/":
         return "homepage"
+
     return "other_page"
 
 
-def _rank_candidates(rows: list[tuple[ExtractedPhone, str]]) -> list[PhoneCandidate]:
+def _rank_candidates(
+    rows: list[tuple[ExtractedPhone, str]],
+) -> list[PhoneCandidate]:
     scores: dict[str, int] = defaultdict(int)
     occurrences: dict[str, int] = defaultdict(int)
     tel_links: dict[str, bool] = defaultdict(bool)
+
     sources: dict[str, set[str]] = defaultdict(set)
     pages: dict[str, set[str]] = defaultdict(set)
     page_labels: dict[str, set[str]] = defaultdict(set)
     context_signals: dict[str, set[str]] = defaultdict(set)
+
     best_source_url: dict[str, str] = {}
     best_source: dict[str, str] = {}
     best_single_score: dict[str, int] = defaultdict(int)
 
     for extracted, source_url in rows:
-        scores[extracted.phone] += extracted.score
-        occurrences[extracted.phone] += 1
-        tel_links[extracted.phone] = tel_links[extracted.phone] or extracted.from_tel_link
-        sources[extracted.phone].add(extracted.source)
-        pages[extracted.phone].add(source_url)
-        page_labels[extracted.phone].add(_page_label(source_url))
-        context_signals[extracted.phone].update(extracted.context_signals)
+        phone = extracted.phone
 
-        if extracted.score > best_single_score[extracted.phone]:
-            best_single_score[extracted.phone] = extracted.score
-            best_source_url[extracted.phone] = source_url
-            best_source[extracted.phone] = extracted.source
+        scores[phone] += extracted.score
+        occurrences[phone] += 1
+
+        tel_links[phone] = (
+            tel_links[phone]
+            or extracted.from_tel_link
+        )
+
+        sources[phone].add(extracted.source)
+        pages[phone].add(source_url)
+        page_labels[phone].add(_page_label(source_url))
+
+        context_signals[phone].update(
+            extracted.context_signals
+        )
+
+        if extracted.score > best_single_score[phone]:
+            best_single_score[phone] = extracted.score
+            best_source_url[phone] = source_url
+            best_source[phone] = extracted.source
 
     ranked: list[PhoneCandidate] = []
+
     for phone, raw_score in scores.items():
-        occurrence_bonus = min(max(occurrences[phone] - 1, 0) * 5, 20)
-        diversity_bonus = {1: 0, 2: 20, 3: 38, 4: 52, 5: 62}.get(
-            len(sources[phone]), 70
+        occurrence_bonus = min(
+            max(occurrences[phone] - 1, 0) * 5,
+            20,
         )
-        page_bonus = min(max(len(pages[phone]) - 1, 0) * 12, 36)
+
+        diversity_bonus = {
+            1: 0,
+            2: 20,
+            3: 38,
+            4: 52,
+            5: 62,
+        }.get(len(sources[phone]), 70)
+
+        page_bonus = min(
+            max(len(pages[phone]) - 1, 0) * 12,
+            36,
+        )
 
         labels = page_labels[phone]
         cross_page_bonus = 0
-        if "homepage" in labels and "contact_page" in labels:
+
+        if (
+            "homepage" in labels
+            and "contact_page" in labels
+        ):
             cross_page_bonus = 25
-        elif "contact_page" in labels and len(pages[phone]) >= 2:
+
+        elif (
+            "contact_page" in labels
+            and len(pages[phone]) >= 2
+        ):
             cross_page_bonus = 15
 
-        final_score = raw_score + occurrence_bonus + diversity_bonus + page_bonus + cross_page_bonus
+        final_score = (
+            raw_score
+            + occurrence_bonus
+            + diversity_bonus
+            + page_bonus
+            + cross_page_bonus
+        )
 
-        evidence = [f"source:{source}" for source in sorted(sources[phone])]
-        evidence.extend(f"page:{label}" for label in sorted(labels))
-        evidence.extend(sorted(context_signals[phone]))
+        evidence = [
+            f"source:{source}"
+            for source in sorted(sources[phone])
+        ]
+
+        evidence.extend(
+            f"page:{label}"
+            for label in sorted(labels)
+        )
+
+        evidence.extend(
+            sorted(context_signals[phone])
+        )
+
         if len(pages[phone]) >= 2:
-            evidence.append(f"repeated_on_{len(pages[phone])}_pages")
+            evidence.append(
+                f"repeated_on_{len(pages[phone])}_pages"
+            )
+
         if len(sources[phone]) >= 2:
-            evidence.append(f"source_diversity:{len(sources[phone])}")
+            evidence.append(
+                f"source_diversity:{len(sources[phone])}"
+            )
 
         ranked.append(
             PhoneCandidate(
@@ -140,32 +223,68 @@ def _confidence(candidate: PhoneCandidate) -> int:
         "footer": 58,
         "visible_text": 48,
     }
-    confidence = source_base.get(candidate.source, 45)
 
-    confidence += min(max(candidate.source_diversity - 1, 0) * 7, 21)
-    confidence += min(max(candidate.page_diversity - 1, 0) * 5, 15)
+    confidence = source_base.get(
+        candidate.source,
+        45,
+    )
+
+    confidence += min(
+        max(candidate.source_diversity - 1, 0) * 7,
+        21,
+    )
+
+    confidence += min(
+        max(candidate.page_diversity - 1, 0) * 5,
+        15,
+    )
+
     if candidate.occurrences >= 2:
         confidence += 3
-    if candidate.from_tel_link and candidate.source != "tel_link":
+
+    if (
+        candidate.from_tel_link
+        and candidate.source != "tel_link"
+    ):
         confidence += 3
-    if any(item.startswith("positive_context:") for item in candidate.evidence):
+
+    if any(
+        item.startswith("positive_context:")
+        for item in candidate.evidence
+    ):
         confidence += 4
-    if any(item.startswith("negative_context:") for item in candidate.evidence):
+
+    if any(
+        item.startswith("negative_context:")
+        for item in candidate.evidence
+    ):
         confidence -= 18
+
     if "page:contact_page" in candidate.evidence:
         confidence += 5
 
     return max(1, min(confidence, 99))
 
 
-async def find_phone_for_domain(raw_domain: str, max_pages: int = 10) -> FinderResult:
+async def find_phone_for_domain(
+    raw_domain: str,
+    max_pages: int = 10,
+) -> FinderResult:
     started_at = time.perf_counter()
     domain = clean_domain(raw_domain)
 
     def duration_ms() -> int:
-        return int((time.perf_counter() - started_at) * 1000)
+        return int(
+            (time.perf_counter() - started_at) * 1000
+        )
+
+    _debug(domain, "=" * 70)
+    _debug(domain, "RAW INPUT:", raw_domain)
+    _debug(domain, "CLEAN DOMAIN:", domain)
 
     if not domain or "." not in domain:
+        _debug(domain, "RESULT: invalid domain")
+
         return FinderResult(
             status="NOT_FOUND",
             website=None,
@@ -179,6 +298,8 @@ async def find_phone_for_domain(raw_domain: str, max_pages: int = 10) -> FinderR
         )
 
     if is_public_email_domain(domain):
+        _debug(domain, "RESULT: public email domain")
+
         return FinderResult(
             status="NOT_FOUND",
             website=None,
@@ -192,8 +313,19 @@ async def find_phone_for_domain(raw_domain: str, max_pages: int = 10) -> FinderR
         )
 
     try:
-        website, pages = await crawl_company_website(domain, max_pages=max_pages)
+        website, pages = await crawl_company_website(
+            domain,
+            max_pages=max_pages,
+        )
+
     except Exception as exc:
+        _debug(
+            domain,
+            "CRAWLER EXCEPTION:",
+            type(exc).__name__,
+            str(exc),
+        )
+
         return FinderResult(
             status="FAILED",
             website=None,
@@ -203,10 +335,29 @@ async def find_phone_for_domain(raw_domain: str, max_pages: int = 10) -> FinderR
             pages_scanned=0,
             scan_duration_ms=duration_ms(),
             candidates=[],
-            error=f"Tehnična napaka pri obdelavi: {type(exc).__name__}",
+            error=(
+                "Tehnična napaka pri obdelavi: "
+                f"{type(exc).__name__}"
+            ),
+        )
+
+    _debug(domain, "RESOLVED WEBSITE:", website)
+    _debug(domain, "PAGES CRAWLED:", len(pages))
+
+    for index, page in enumerate(pages, start=1):
+        _debug(
+            domain,
+            f"PAGE {index}:",
+            page.url,
+            f"HTML LENGTH={len(page.html)}",
         )
 
     if not website or not pages:
+        _debug(
+            domain,
+            "RESULT: crawler returned no pages",
+        )
+
         return FinderResult(
             status="NOT_FOUND",
             website=website,
@@ -220,12 +371,90 @@ async def find_phone_for_domain(raw_domain: str, max_pages: int = 10) -> FinderR
         )
 
     rows: list[tuple[ExtractedPhone, str]] = []
+
     for page in pages:
-        for extracted in extract_phones(page.html, page.url, domain):
+        try:
+            extracted_phones = extract_phones(
+                page.html,
+                page.url,
+                domain,
+            )
+
+        except Exception as exc:
+            # Napaka na eni strani ne sme prekiniti
+            # celotnega enrichment procesa.
+            _debug(
+                domain,
+                "PARSER ERROR:",
+                page.url,
+                type(exc).__name__,
+                str(exc),
+            )
+            continue
+
+        _debug(
+            domain,
+            "EXTRACTED FROM PAGE:",
+            page.url,
+            "COUNT:",
+            len(extracted_phones),
+        )
+
+        for extracted in extracted_phones:
             rows.append((extracted, page.url))
 
+            _debug(
+                domain,
+                "  PHONE:",
+                extracted.phone,
+                "| SOURCE:",
+                extracted.source,
+                "| SCORE:",
+                extracted.score,
+                "| TEL LINK:",
+                extracted.from_tel_link,
+                "| CONTEXT:",
+                extracted.context_signals,
+            )
+
+    _debug(domain, "TOTAL EXTRACTED ROWS:", len(rows))
+
     ranked = _rank_candidates(rows)
+
+    _debug(domain, "RANKED CANDIDATES:", len(ranked))
+
+    for index, candidate in enumerate(
+        ranked[:10],
+        start=1,
+    ):
+        _debug(
+            domain,
+            f"CANDIDATE {index}:",
+            candidate.phone,
+            "| SCORE:",
+            candidate.score,
+            "| CONFIDENCE:",
+            _confidence(candidate),
+            "| SOURCE:",
+            candidate.source,
+            "| OCCURRENCES:",
+            candidate.occurrences,
+            "| SOURCE DIVERSITY:",
+            candidate.source_diversity,
+            "| PAGE DIVERSITY:",
+            candidate.page_diversity,
+            "| URL:",
+            candidate.source_url,
+            "| EVIDENCE:",
+            candidate.evidence,
+        )
+
     if not ranked:
+        _debug(
+            domain,
+            "RESULT: NOT_FOUND — no ranked candidates",
+        )
+
         return FinderResult(
             status="NOT_FOUND",
             website=website,
@@ -239,14 +468,32 @@ async def find_phone_for_domain(raw_domain: str, max_pages: int = 10) -> FinderR
         )
 
     best = ranked[0]
+    confidence = _confidence(best)
+
+    _debug(
+        domain,
+        "RESULT: MATCHED",
+        "| PHONE:",
+        best.phone,
+        "| CONFIDENCE:",
+        confidence,
+        "| SOURCE:",
+        best.source,
+        "| URL:",
+        best.source_url,
+    )
+
     return FinderResult(
         status="MATCHED",
         website=website,
         phone=best.phone,
-        confidence=_confidence(best),
+        confidence=confidence,
         source_url=best.source_url,
         pages_scanned=len(pages),
         scan_duration_ms=duration_ms(),
-        candidates=[asdict(candidate) for candidate in ranked[:5]],
+        candidates=[
+            asdict(candidate)
+            for candidate in ranked[:5]
+        ],
         error=None,
     )
