@@ -202,10 +202,7 @@ async def enrich_contact_record(
             payload,
         )
 
-        is_success = result.status in {
-            "MATCHED",
-            "PARTIAL_MATCH",
-        }
+        is_success = result.status  == "MATCHED"
 
         return {
             "success": is_success,

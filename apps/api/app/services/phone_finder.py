@@ -583,7 +583,7 @@ async def find_phone_for_domain(
         )
 
         return FinderResult(
-            status="EMAIL_FOUND",
+            status="NOT FOUND",
             website=None,
             phone=None,
             confidence=None,
@@ -768,11 +768,7 @@ async def find_phone_for_domain(
     best = ranked[0]
     confidence = score_to_confidence(best)
 
-    status = (
-        "MATCHED"
-        if confidence >= 75
-        else "PARTIAL_MATCH"
-    )
+    status = "MATCHED"
 
     return FinderResult(
         status=status,
