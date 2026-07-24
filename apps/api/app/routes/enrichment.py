@@ -7,7 +7,12 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.database import get_supabase
+from app.services.company_cache import (
+    get_cached_company_result,
+    save_company_result,
+)
 from app.services.phone_finder import find_phone_for_domain
+from app.services.providers import clean_domain
 
 
 router = APIRouter(
@@ -18,6 +23,7 @@ router = APIRouter(
 
 CONTACT_SELECT_FIELDS = (
     "id,"
+    "company_id,"
     "email,"
     "domain,"
     "website,"
@@ -139,21 +145,23 @@ async def enrich_contact_record(
     max_pages: int,
 ) -> dict[str, Any]:
     contact_id = str(contact["id"])
-    domain = str(
-        contact.get("domain") or ""
-    ).strip()
+    domain = clean_domain(
+        str(contact.get("domain") or "")
+    )
 
     current_attempts = int(
         contact.get("scan_attempts") or 0
     )
-
     next_attempts = current_attempts + 1
 
-    if not domain:
+    if not domain or "." not in domain:
         updated_contact = update_contact(
             contact_id,
             {
-                "status": "FAILED",
+                "phone": None,
+                "confidence": None,
+                "source_url": None,
+                "status": "NOT_FOUND",
                 "scan_attempts": next_attempts,
                 "last_scan": utc_now_iso(),
             },
@@ -161,29 +169,33 @@ async def enrich_contact_record(
 
         return {
             "success": False,
-            "skipped": False,
+            "cached": False,
             "contact": updated_contact,
             "result": {
-                "status": "FAILED",
+                "status": "NOT_FOUND",
                 "error": "Kontakt nima veljavne domene.",
             },
         }
 
     try:
-        result = await find_phone_for_domain(
-            raw_domain=domain,
-            max_pages=max_pages,
+        cached_result, cached_company_id = (
+            get_cached_company_result(domain)
         )
 
-        is_skipped = (
-            result.status == "SKIPPED_FREE_EMAIL"
-        )
-
-        database_status = (
-            "NOT_FOUND"
-            if is_skipped
-            else result.status
-        )
+        if cached_result is not None:
+            result = cached_result
+            company_id = cached_company_id
+            from_cache = True
+        else:
+            result = await find_phone_for_domain(
+                raw_domain=domain,
+                max_pages=max_pages,
+            )
+            company_id = save_company_result(
+                domain,
+                result,
+            )
+            from_cache = False
 
         payload: dict[str, Any] = {
             "website": result.website,
@@ -194,21 +206,25 @@ async def enrich_contact_record(
             "scan_attempts": next_attempts,
             "scan_duration_ms": result.scan_duration_ms,
             "last_scan": utc_now_iso(),
-            "status": database_status,
+            "status": result.status,
         }
+
+        if company_id:
+            payload["company_id"] = company_id
 
         updated_contact = update_contact(
             contact_id,
             payload,
         )
 
-        is_success = result.status  == "MATCHED"
-
         return {
-            "success": is_success,
-            "skipped": is_skipped,
+            "success": result.status == "MATCHED",
+            "cached": from_cache,
             "contact": updated_contact,
-            "result": result.to_dict(),
+            "result": {
+                **result.to_dict(),
+                "cached": from_cache,
+            },
         }
 
     except HTTPException:
@@ -226,11 +242,12 @@ async def enrich_contact_record(
 
         return {
             "success": False,
-            "skipped": False,
+            "cached": False,
             "contact": updated_contact,
             "result": {
                 "status": "FAILED",
                 "error": str(exc),
+                "cached": False,
             },
         }
 
@@ -239,43 +256,31 @@ def create_bulk_summary(
     results: list[dict[str, Any]],
 ) -> dict[str, int]:
     matched = 0
-    partial_match = 0
     not_found = 0
-    skipped = 0
     failed = 0
+    cached = 0
 
     for item_result in results:
+        result = item_result.get("result", {})
         result_status = str(
-            item_result.get(
-                "result",
-                {},
-            ).get(
-                "status",
-                "FAILED",
-            )
+            result.get("status", "FAILED")
         )
+
+        if bool(result.get("cached")):
+            cached += 1
 
         if result_status == "MATCHED":
             matched += 1
-
-        elif result_status == "PARTIAL_MATCH":
-            partial_match += 1
-
         elif result_status == "NOT_FOUND":
             not_found += 1
-
-        elif result_status == "SKIPPED_FREE_EMAIL":
-            skipped += 1
-
         else:
             failed += 1
 
     return {
         "matched": matched,
-        "partial_match": partial_match,
         "not_found": not_found,
-        "skipped": skipped,
         "failed": failed,
+        "cached": cached,
     }
 
 
@@ -297,12 +302,32 @@ async def test_enrichment(
         ),
     ),
 ) -> dict[str, Any]:
+    normalized_domain = clean_domain(domain)
+
+    cached_result, _ = get_cached_company_result(
+        normalized_domain
+    )
+
+    if cached_result is not None:
+        return {
+            **cached_result.to_dict(),
+            "cached": True,
+        }
+
     result = await find_phone_for_domain(
-        raw_domain=domain,
+        raw_domain=normalized_domain,
         max_pages=max_pages,
     )
 
-    return result.to_dict()
+    save_company_result(
+        normalized_domain,
+        result,
+    )
+
+    return {
+        **result.to_dict(),
+        "cached": False,
+    }
 
 
 @router.post("/contacts/{contact_id}")
@@ -365,12 +390,12 @@ async def bulk_enrich_selected_contacts(
         results: list[dict[str, Any]] = []
 
         for contact in contacts:
-            item_result = await enrich_contact_record(
-                contact=contact,
-                max_pages=request.max_pages,
+            results.append(
+                await enrich_contact_record(
+                    contact=contact,
+                    max_pages=request.max_pages,
+                )
             )
-
-            results.append(item_result)
 
         summary = create_bulk_summary(results)
 
@@ -454,10 +479,9 @@ async def bulk_enrich_contacts(
                 "requested_limit": limit,
                 "processed": 0,
                 "matched": 0,
-                "partial_match": 0,
                 "not_found": 0,
-                "skipped": 0,
                 "failed": 0,
+                "cached": 0,
                 "items": [],
                 "message": (
                     "Ni kontaktov, ki bi ustrezali "
@@ -468,12 +492,12 @@ async def bulk_enrich_contacts(
         results: list[dict[str, Any]] = []
 
         for contact in contacts:
-            item_result = await enrich_contact_record(
-                contact=contact,
-                max_pages=max_pages,
+            results.append(
+                await enrich_contact_record(
+                    contact=contact,
+                    max_pages=max_pages,
+                )
             )
-
-            results.append(item_result)
 
         summary = create_bulk_summary(results)
 
