@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from app.database import get_supabase
+from app.workers.domain_worker import claim_jobs, process_job, seed_jobs
 
 
 router = APIRouter(
@@ -28,105 +30,140 @@ def _set_paused(paused: bool) -> dict[str, Any]:
         .execute()
     )
 
-    rows = response.data or []
-
     return {
         "worker": "domain_enrichment",
         "paused": paused,
-        "saved": bool(rows),
+        "saved": bool(response.data or []),
+    }
+
+
+def _read_status() -> dict[str, Any]:
+    supabase = get_supabase()
+
+    status_response = supabase.rpc(
+        "domain_worker_status",
+    ).execute()
+
+    control_response = (
+        supabase.table("worker_control")
+        .select("paused,updated_at")
+        .eq("worker_name", "domain_enrichment")
+        .limit(1)
+        .execute()
+    )
+
+    status_rows = status_response.data or []
+    control_rows = control_response.data or []
+
+    counts = status_rows[0] if status_rows else {
+        "pending": 0,
+        "processing": 0,
+        "matched": 0,
+        "not_found": 0,
+        "failed": 0,
+        "total": 0,
+    }
+
+    processed = (
+        int(counts.get("matched") or 0)
+        + int(counts.get("not_found") or 0)
+        + int(counts.get("failed") or 0)
+    )
+    total = int(counts.get("total") or 0)
+
+    return {
+        **counts,
+        "processed": processed,
+        "progress_percent": (
+            round(processed / total * 100, 2)
+            if total
+            else 0
+        ),
+        "paused": bool(
+            control_rows
+            and control_rows[0].get("paused")
+        ),
     }
 
 
 @router.get("/status")
 def worker_status() -> dict[str, Any]:
     try:
-        supabase = get_supabase()
-
-        status_response = supabase.rpc(
-            "domain_worker_status",
-        ).execute()
-
-        control_response = (
-            supabase.table("worker_control")
-            .select("paused,updated_at")
-            .eq(
-                "worker_name",
-                "domain_enrichment",
-            )
-            .limit(1)
-            .execute()
-        )
-
-        status_rows = status_response.data or []
-        control_rows = control_response.data or []
-
-        counts = (
-            status_rows[0]
-            if status_rows
-            else {
-                "pending": 0,
-                "processing": 0,
-                "matched": 0,
-                "not_found": 0,
-                "failed": 0,
-                "total": 0,
-            }
-        )
-
-        paused = bool(
-            control_rows
-            and control_rows[0].get("paused")
-        )
-
-        processed = (
-            int(counts.get("matched") or 0)
-            + int(counts.get("not_found") or 0)
-            + int(counts.get("failed") or 0)
-        )
-        total = int(counts.get("total") or 0)
-
-        return {
-            **counts,
-            "processed": processed,
-            "progress_percent": (
-                round(processed / total * 100, 2)
-                if total
-                else 0
-            ),
-            "paused": paused,
-        }
-
+        return _read_status()
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail=(
-                "Statusa workerja ni bilo mogoče "
-                f"prebrati: {exc}"
-            ),
+            detail=f"Statusa workerja ni bilo mogoče prebrati: {exc}",
         ) from exc
 
 
 @router.post("/seed")
 def seed_worker_queue() -> dict[str, Any]:
     try:
-        supabase = get_supabase()
-
-        response = supabase.rpc(
-            "seed_domain_jobs",
-        ).execute()
-
+        rows = seed_jobs()
         return {
             "status": "ok",
-            "rows": response.data,
+            "rows": rows,
+            "worker_status": _read_status(),
+        }
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Čakalne vrste ni bilo mogoče napolniti: {exc}",
+        ) from exc
+
+
+@router.post("/run")
+async def run_worker_batch(
+    limit: int = Query(default=5, ge=1, le=25),
+) -> dict[str, Any]:
+    try:
+        status_before = await asyncio.to_thread(_read_status)
+
+        if status_before.get("paused"):
+            return {
+                "status": "paused",
+                "claimed": 0,
+                "processed_in_batch": 0,
+                "worker_status": status_before,
+            }
+
+        await asyncio.to_thread(seed_jobs)
+
+        jobs = await asyncio.to_thread(
+            claim_jobs,
+            limit,
+        )
+
+        if not jobs:
+            return {
+                "status": "completed",
+                "claimed": 0,
+                "processed_in_batch": 0,
+                "worker_status": await asyncio.to_thread(
+                    _read_status
+                ),
+                "message": "Ni več čakajočih domen.",
+            }
+
+        await asyncio.gather(
+            *(process_job(job) for job in jobs)
+        )
+
+        return {
+            "status": "batch_completed",
+            "claimed": len(jobs),
+            "processed_in_batch": len(jobs),
+            "domains": [job.domain for job in jobs],
+            "worker_status": await asyncio.to_thread(
+                _read_status
+            ),
         }
 
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail=(
-                "Čakalne vrste ni bilo mogoče "
-                f"napolniti: {exc}"
-            ),
+            detail=f"Batch obdelave ni bilo mogoče dokončati: {exc}",
         ) from exc
 
 
@@ -134,14 +171,10 @@ def seed_worker_queue() -> dict[str, Any]:
 def pause_worker() -> dict[str, Any]:
     try:
         return _set_paused(True)
-
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail=(
-                "Workerja ni bilo mogoče "
-                f"zaustaviti: {exc}"
-            ),
+            detail=f"Workerja ni bilo mogoče zaustaviti: {exc}",
         ) from exc
 
 
@@ -149,21 +182,12 @@ def pause_worker() -> dict[str, Any]:
 def resume_worker() -> dict[str, Any]:
     try:
         result = _set_paused(False)
-
-        supabase = get_supabase()
-        supabase.rpc(
-            "seed_domain_jobs",
-        ).execute()
-
+        seed_jobs()
         return result
-
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail=(
-                "Workerja ni bilo mogoče "
-                f"nadaljevati: {exc}"
-            ),
+            detail=f"Workerja ni bilo mogoče nadaljevati: {exc}",
         ) from exc
 
 
@@ -196,8 +220,5 @@ def retry_failed_jobs() -> dict[str, Any]:
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail=(
-                "FAILED opravil ni bilo mogoče "
-                f"ponovno dodati: {exc}"
-            ),
+            detail=f"FAILED opravil ni bilo mogoče ponovno dodati: {exc}",
         ) from exc
