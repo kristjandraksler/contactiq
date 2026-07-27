@@ -365,25 +365,37 @@ async def find_phone_for_domain(
 
     rows: list[tuple[ExtractedPhone, str]] = []
 
-    for page in pages:
-        try:
-            extracted_phones = extract_phones(
-                page.html,
-                page.url,
-                domain,
-            )
-        except Exception as exc:
-            _debug(
-                domain,
-                "PARSER ERROR:",
-                page.url,
-                type(exc).__name__,
-                str(exc),
-            )
-            continue
+for page in pages:
+    try:
+        extracted_phones = extract_phones(
+            page.html,
+            page.url,
+            domain,
+        )
 
-        for extracted in extracted_phones:
-            rows.append((extracted, page.url))
+        print("=" * 60)
+        print(page.url)
+        print(
+            f"Phones found: {len(extracted_phones)}"
+        )
+
+        for phone in extracted_phones:
+            print(phone)
+
+        print("=" * 60)
+
+    except Exception as exc:
+        _debug(
+            domain,
+            "PARSER ERROR:",
+            page.url,
+            type(exc).__name__,
+            str(exc),
+        )
+        continue
+
+    for extracted in extracted_phones:
+        rows.append((extracted, page.url))
 
     ranked = _rank_candidates(rows)
 
