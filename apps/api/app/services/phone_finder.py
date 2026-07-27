@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import logging
 import time
 from collections import defaultdict
@@ -14,16 +15,12 @@ from .phone_parser import ExtractedPhone, extract_phones
 from .providers import clean_domain, is_public_email_domain
 from .website_crawler import crawl_company_website
 
+
 logger = logging.getLogger(__name__)
 
-
-def _debug(domain: str, *values: object) -> None:
-    if _debug_enabled(domain):
-        message = " ".join(str(value) for value in values)
-        logger.warning(
-            "[PHONE FINDER DEBUG] %s",
-            message,
-        )
+DEBUG_DOMAINS: set[str] = {
+    "letko.net",
+}
 
 
 @dataclass
@@ -66,12 +63,23 @@ def _debug_enabled(domain: str) -> bool:
 
 
 def _debug(domain: str, *values: object) -> None:
-    if _debug_enabled(domain):
-        print("[PHONE FINDER DEBUG]", *values, flush=True)
+    if not _debug_enabled(domain):
+        return
+
+    message = " ".join(str(value) for value in values)
+    logger.warning(
+        "[PHONE FINDER DEBUG] %s",
+        message,
+    )
 
 
 def _page_label(url: str) -> str:
-    path = (urlparse(url).path or "/").lower().rstrip("/") or "/"
+    path = (
+        (urlparse(url).path or "/")
+        .lower()
+        .rstrip("/")
+        or "/"
+    )
 
     if "kontakt" in path or "contact" in path:
         return "contact_page"
@@ -231,19 +239,23 @@ def _rank_candidates(
             warnings=[],
         )
 
+        provisional_evidence = (
+            [
+                f"source:{source}"
+                for source in sorted(sources[phone])
+            ]
+            + [
+                f"page:{label}"
+                for label in sorted(labels)
+            ]
+            + sorted(context_signals[phone])
+        )
+
         candidate_confidence = _confidence(
             PhoneCandidate(
                 **{
                     **asdict(candidate),
-                    "evidence": [
-                        f"source:{source}"
-                        for source in sorted(sources[phone])
-                    ]
-                    + [
-                        f"page:{label}"
-                        for label in sorted(labels)
-                    ]
-                    + sorted(context_signals[phone]),
+                    "evidence": provisional_evidence,
                 }
             )
         )
@@ -379,42 +391,41 @@ async def find_phone_for_domain(
                 domain,
             )
 
-          _debug(
-    domain,
-    "=" * 60,
-)
+            _debug(
+                domain,
+                "=" * 60,
+            )
+            _debug(
+                domain,
+                "PAGE:",
+                page.url,
+                "| PHONES FOUND:",
+                len(extracted_phones),
+            )
 
-_debug(
-    domain,
-    "PAGE:",
-    page.url,
-    "| PHONES FOUND:",
-    len(extracted_phones),
-)
+            for extracted_phone in extracted_phones:
+                _debug(
+                    domain,
+                    "PHONE:",
+                    extracted_phone.phone,
+                    "| SOURCE:",
+                    extracted_phone.source,
+                    "| SCORE:",
+                    extracted_phone.score,
+                    "| KEYWORD DISTANCE:",
+                    extracted_phone.keyword_distance,
+                    "| POSITION:",
+                    extracted_phone.position_ratio,
+                    "| HTML TAG:",
+                    extracted_phone.html_tag,
+                    "| SECTION:",
+                    extracted_phone.section,
+                )
 
-for extracted_phone in extracted_phones:
-    _debug(
-        domain,
-        "PHONE:",
-        extracted_phone.phone,
-        "| SOURCE:",
-        extracted_phone.source,
-        "| SCORE:",
-        extracted_phone.score,
-        "| KEYWORD DISTANCE:",
-        extracted_phone.keyword_distance,
-        "| POSITION:",
-        extracted_phone.position_ratio,
-        "| HTML TAG:",
-        extracted_phone.html_tag,
-        "| SECTION:",
-        extracted_phone.section,
-    )
-
-_debug(
-    domain,
-    "=" * 60,
-)
+            _debug(
+                domain,
+                "=" * 60,
+            )
 
         except Exception as exc:
             _debug(
@@ -465,5 +476,7 @@ _debug(
             for candidate in ranked[:5]
         ],
         error=None,
-        confidence_label=confidence_label(best_confidence),
+        confidence_label=confidence_label(
+            best_confidence
+        ),
     )
