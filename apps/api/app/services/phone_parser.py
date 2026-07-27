@@ -7,7 +7,7 @@ from typing import Any, Iterable
 
 import phonenumbers
 from bs4 import BeautifulSoup, Comment, Tag
-from phonenumbers import PhoneNumberFormat, PhoneNumberType
+from phonenumbers import PhoneNumberFormat
 
 PHONE_PATTERN = re.compile(
     r"""(?:(?:\+|00)\s?\d{1,3}|0)[\s()./-]*\d(?:[\s()./-]*\d){6,13}""",
@@ -31,8 +31,6 @@ POSITIVE_CONTEXT: dict[str, int] = {
     "pisarna": 12,
     "prodaja": 12,
     "sales": 12,
-    "support": 10,
-    "podpora": 10,
 }
 
 NEGATIVE_CONTEXT: dict[str, int] = {
@@ -55,20 +53,12 @@ NEGATIVE_CONTEXT: dict[str, int] = {
     "politika zasebnosti": -8,
 }
 
-NOISE_TAGS = (
-    "script",
-    "style",
-    "noscript",
-    "svg",
-    "template",
-    "iframe",
-    "canvas",
-)
+NOISE_TAGS = ("script", "style", "noscript", "svg", "template", "iframe", "canvas")
 NOISE_ATTRIBUTE_KEYWORDS = (
     "cookie",
     "consent",
     "gdpr",
-    "cookiebot",
+        "cookiebot",
     "onetrust",
 )
 
@@ -80,10 +70,6 @@ class ExtractedPhone:
     source: str
     from_tel_link: bool = False
     context_signals: tuple[str, ...] = ()
-    phone_type: str = "unknown"
-    element_tag: str = "unknown"
-    keyword_distance: int | None = None
-    position_ratio: float | None = None
 
 
 def default_region(domain: str) -> str:
@@ -96,13 +82,10 @@ def default_region(domain: str) -> str:
         ".ie": "IE", ".us": "US", ".ca": "CA", ".au": "AU",
     }
     lowered = domain.lower().rstrip(".")
-    return next(
-        (region for suffix, region in regions.items() if lowered.endswith(suffix)),
-        "SI",
-    )
+    return next((region for suffix, region in regions.items() if lowered.endswith(suffix)), "SI")
 
 
-def _parse_phone(value: str, region: str) -> phonenumbers.PhoneNumber | None:
+def normalize_phone(value: str, region: str) -> str | None:
     raw = value.strip()
     if raw.lower().startswith("tel:"):
         raw = raw[4:]
@@ -113,40 +96,9 @@ def _parse_phone(value: str, region: str) -> phonenumbers.PhoneNumber | None:
         parsed = phonenumbers.parse(raw, region)
     except phonenumbers.NumberParseException:
         return None
-    if not phonenumbers.is_possible_number(parsed):
-        return None
-    if not phonenumbers.is_valid_number(parsed):
-        return None
-    return parsed
-
-
-def normalize_phone(value: str, region: str) -> str | None:
-    parsed = _parse_phone(value, region)
-    if not parsed:
+    if not phonenumbers.is_possible_number(parsed) or not phonenumbers.is_valid_number(parsed):
         return None
     return phonenumbers.format_number(parsed, PhoneNumberFormat.E164)
-
-
-def _phone_type(value: str, region: str) -> str:
-    parsed = _parse_phone(value, region)
-    if not parsed:
-        return "unknown"
-
-    number_type = phonenumbers.number_type(parsed)
-    mapping = {
-        PhoneNumberType.MOBILE: "mobile",
-        PhoneNumberType.FIXED_LINE: "fixed_line",
-        PhoneNumberType.FIXED_LINE_OR_MOBILE: "fixed_or_mobile",
-        PhoneNumberType.TOLL_FREE: "toll_free",
-        PhoneNumberType.PREMIUM_RATE: "premium_rate",
-        PhoneNumberType.SHARED_COST: "shared_cost",
-        PhoneNumberType.VOIP: "voip",
-        PhoneNumberType.PERSONAL_NUMBER: "personal",
-        PhoneNumberType.PAGER: "pager",
-        PhoneNumberType.UAN: "uan",
-        PhoneNumberType.VOICEMAIL: "voicemail",
-    }
-    return mapping.get(number_type, "unknown")
 
 
 def _walk_json(value: Any) -> Iterable[tuple[str, str]]:
@@ -179,41 +131,15 @@ def _page_bonus(page_url: str) -> int:
     return 5
 
 
-def _nearest_keyword_distance(text: str, phone_start: int) -> tuple[int | None, str | None]:
-    lowered = text.lower()
-    nearest_distance: int | None = None
-    nearest_phrase: str | None = None
-
-    for phrase in (*POSITIVE_CONTEXT.keys(), *NEGATIVE_CONTEXT.keys()):
-        start = 0
-        while True:
-            index = lowered.find(phrase, start)
-            if index < 0:
-                break
-            distance = abs(phone_start - index)
-            if nearest_distance is None or distance < nearest_distance:
-                nearest_distance = distance
-                nearest_phrase = phrase
-            start = index + 1
-
-    return nearest_distance, nearest_phrase
-
-
 def _context_score(text: str) -> tuple[int, tuple[str, ...]]:
     lowered = " ".join(text.lower().split())
     score = 0
     signals: list[str] = []
 
-    positive_hits = [
-        (weight, phrase)
-        for phrase, weight in POSITIVE_CONTEXT.items()
-        if phrase in lowered
-    ]
-    negative_hits = [
-        (weight, phrase)
-        for phrase, weight in NEGATIVE_CONTEXT.items()
-        if phrase in lowered
-    ]
+    # Apply only the strongest positive and strongest negative hit. This avoids
+    # runaway scores when several synonyms occur in the same short block.
+    positive_hits = [(weight, phrase) for phrase, weight in POSITIVE_CONTEXT.items() if phrase in lowered]
+    negative_hits = [(weight, phrase) for phrase, weight in NEGATIVE_CONTEXT.items() if phrase in lowered]
 
     if positive_hits:
         weight, phrase = max(positive_hits)
@@ -227,7 +153,7 @@ def _context_score(text: str) -> tuple[int, tuple[str, ...]]:
     return score, tuple(signals)
 
 
-def _element_context(element: Tag, limit: int = 140) -> str:
+def _element_context(element: Tag, limit: int = 90) -> str:
     parent = element.parent if isinstance(element.parent, Tag) else element
     text = parent.get_text(" ", strip=True)
     return text[:limit]
@@ -260,82 +186,21 @@ def _append_candidate(
     source: str,
     context: str = "",
     from_tel_link: bool = False,
-    element_tag: str = "unknown",
-    keyword_distance: int | None = None,
-    position_ratio: float | None = None,
 ) -> None:
     phone = normalize_phone(raw_phone, region)
     if not phone:
         return
-
     context_delta, signals = _context_score(context)
-    if source in {"schema_org", "tel_link"}:
-        context_delta = max(context_delta, 0)
-        signals = tuple(
-            signal
-            for signal in signals
-            if not signal.startswith("negative_context:")
-        )
-
-    proximity_bonus = 0
-    if keyword_distance is not None:
-        if keyword_distance <= 12:
-            proximity_bonus = 16
-            signals += ("keyword_proximity:very_close",)
-        elif keyword_distance <= 40:
-            proximity_bonus = 10
-            signals += ("keyword_proximity:close",)
-        elif keyword_distance <= 100:
-            proximity_bonus = 4
-            signals += ("keyword_proximity:near",)
-
-    structural_bonus = {
-        "h1": 14,
-        "h2": 14,
-        "h3": 12,
-        "strong": 10,
-        "b": 8,
-        "label": 10,
-        "dt": 10,
-        "td": 6,
-        "li": 4,
-        "address": 8,
-        "a": 8,
-        "footer": 0,
-        "body": 0,
-        "meta": 8,
-        "script": 8,
-    }.get(element_tag, 0)
-
-    position_bonus = 0
-    if position_ratio is not None:
-        if position_ratio <= 0.20:
-            position_bonus = 8
-            signals += ("page_position:top",)
-        elif position_ratio <= 0.50:
-            position_bonus = 4
-            signals += ("page_position:upper_half",)
-
-    final_score = (
-        base_score
-        + page_bonus
-        + max(min(context_delta, 10), -20)
-        + proximity_bonus
-        + structural_bonus
-        + position_bonus
-    )
-
+    if source in {'schema_org','tel_link'}:
+        context_delta=max(context_delta,0)
+        signals=tuple(s for s in signals if not s.startswith('negative_context:'))
     found.append(
         ExtractedPhone(
             phone=phone,
-            score=max(final_score, 1),
+            score=max(base_score + page_bonus + max(min(context_delta,10),-20), 1),
             source=source,
             from_tel_link=from_tel_link,
             context_signals=signals,
-            phone_type=_phone_type(raw_phone, region),
-            element_tag=element_tag,
-            keyword_distance=keyword_distance,
-            position_ratio=position_ratio,
         )
     )
 
@@ -346,14 +211,11 @@ def extract_phones(html: str, page_url: str, domain: str) -> list[ExtractedPhone
     page_bonus = _page_bonus(page_url)
     found: list[ExtractedPhone] = []
 
+    # 1. Explicit tel: links are a strong, deliberate signal.
     tel_anchors: list[Tag] = []
     for anchor in soup.find_all("a", href=True):
         href = str(anchor.get("href") or "").strip()
         if href.lower().startswith("tel:"):
-            context = _element_context(anchor)
-            phone_text = anchor.get_text(" ", strip=True) or href
-            context_start = max(context.lower().find(phone_text.lower()), 0)
-            distance, _ = _nearest_keyword_distance(context, context_start)
             _append_candidate(
                 found,
                 href,
@@ -361,14 +223,12 @@ def extract_phones(html: str, page_url: str, domain: str) -> list[ExtractedPhone
                 base_score=125,
                 page_bonus=page_bonus,
                 source="tel_link",
-                context=context,
+                context=_element_context(anchor),
                 from_tel_link=True,
-                element_tag="a",
-                keyword_distance=distance,
-                position_ratio=None,
             )
             tel_anchors.append(anchor)
 
+    # 2. Schema.org / JSON-LD Organization and LocalBusiness data.
     for script in soup.find_all("script", attrs={"type": "application/ld+json"}):
         raw_json = script.string or script.get_text(" ", strip=True)
         if not raw_json:
@@ -386,23 +246,15 @@ def extract_phones(html: str, page_url: str, domain: str) -> list[ExtractedPhone
                 page_bonus=page_bonus,
                 source="schema_org",
                 context="schema.org telephone contact",
-                element_tag="script",
-                keyword_distance=0,
-                position_ratio=None,
             )
 
+    # 3. Microdata and generic telephone metadata.
     selector = (
         '[itemprop="telephone"], meta[name="telephone"], '
         'meta[property="business:contact_data:phone_number"]'
     )
     for element in soup.select(selector):
-        raw_phone = str(
-            element.get("content")
-            or element.get_text(" ", strip=True)
-            or ""
-        )
-        context = _element_context(element)
-        distance, _ = _nearest_keyword_distance(context, 0)
+        raw_phone = str(element.get("content") or element.get_text(" ", strip=True) or "")
         _append_candidate(
             found,
             raw_phone,
@@ -410,26 +262,23 @@ def extract_phones(html: str, page_url: str, domain: str) -> list[ExtractedPhone
             base_score=135,
             page_bonus=page_bonus,
             source="microdata",
-            context=context,
-            element_tag=element.name or "meta",
-            keyword_distance=distance,
-            position_ratio=None,
+            context=_element_context(element),
         )
 
+    # Remove noisy DOM areas only after structured data and tel links are read.
     _remove_noise(soup)
 
+    # Avoid counting tel-link text again as generic visible text.
     for anchor in tel_anchors:
         if anchor.parent is not None:
             anchor.decompose()
 
+    # 4. Footer is useful but less trustworthy than explicit structured data.
     for footer in list(soup.find_all("footer")):
         footer_text = footer.get_text(" ", strip=True)
-        text_length = max(len(footer_text), 1)
         for match in PHONE_PATTERN.finditer(footer_text):
             start, end = match.span()
             context = footer_text[max(0, start - 120):min(len(footer_text), end + 120)]
-            context_phone_start = min(120, start)
-            distance, _ = _nearest_keyword_distance(context, context_phone_start)
             _append_candidate(
                 found,
                 match.group(0),
@@ -438,20 +287,15 @@ def extract_phones(html: str, page_url: str, domain: str) -> list[ExtractedPhone
                 page_bonus=page_bonus,
                 source="footer",
                 context=context,
-                element_tag="footer",
-                keyword_distance=distance,
-                position_ratio=start / text_length,
             )
+        # Prevent footer numbers being counted a second time as body text.
         footer.decompose()
 
+    # 5. Visible body text fallback.
     body_text = soup.get_text(" ", strip=True)
-    text_length = max(len(body_text), 1)
     for match in PHONE_PATTERN.finditer(body_text):
         start, end = match.span()
-        context_start = max(0, start - 120)
-        context = body_text[context_start:min(len(body_text), end + 120)]
-        context_phone_start = start - context_start
-        distance, _ = _nearest_keyword_distance(context, context_phone_start)
+        context = body_text[max(0, start - 120):min(len(body_text), end + 120)]
         _append_candidate(
             found,
             match.group(0),
@@ -460,9 +304,6 @@ def extract_phones(html: str, page_url: str, domain: str) -> list[ExtractedPhone
             page_bonus=page_bonus,
             source="visible_text",
             context=context,
-            element_tag="body",
-            keyword_distance=distance,
-            position_ratio=start / text_length,
         )
 
     return found
