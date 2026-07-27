@@ -301,18 +301,27 @@ async def test_enrichment(
             "Največje število pregledanih strani."
         ),
     ),
+    force_refresh: bool = Query(
+        default=False,
+        description=(
+            "Če je true, preskoči cache in ponovno "
+            "pregleda spletno stran."
+        ),
+    ),
 ) -> dict[str, Any]:
     normalized_domain = clean_domain(domain)
 
-    cached_result, _ = get_cached_company_result(
-        normalized_domain
-    )
+    if not force_refresh:
+        cached_result, _ = get_cached_company_result(
+            normalized_domain
+        )
 
-    if cached_result is not None:
-        return {
-            **cached_result.to_dict(),
-            "cached": True,
-        }
+        if cached_result is not None:
+            return {
+                **cached_result.to_dict(),
+                "cached": True,
+                "force_refresh": False,
+            }
 
     result = await find_phone_for_domain(
         raw_domain=normalized_domain,
@@ -327,6 +336,7 @@ async def test_enrichment(
     return {
         **result.to_dict(),
         "cached": False,
+        "force_refresh": force_refresh,
     }
 
 
