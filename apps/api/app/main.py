@@ -7,6 +7,7 @@ from app.import_utils import extract_emails, is_valid_email
 from app.routes.enrichment import router as enrichment_router
 from app.routes.stats import router as stats_router
 from app.routes.leads import router as leads_router
+from app.routes.admin_worker import router as admin_worker_router
 
 app = FastAPI(
     title="ContactIQ API",
@@ -18,6 +19,7 @@ app.include_router(enrichment_router)
 app.include_router(contacts_router)
 app.include_router(leads_router)
 app.include_router(system_router)
+app.include_router(admin_worker_router)
 
 app.add_middleware(
     CORSMiddleware,
