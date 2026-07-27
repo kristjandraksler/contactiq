@@ -137,6 +137,41 @@ def _page_bonus(page_url: str) -> int:
     return 5
 
 
+KEYWORDS = (
+    "telefon",
+    "telephone",
+    "phone",
+    "tel.",
+    "kontakt",
+    "contact",
+)
+
+
+def _keyword_distance(
+    text: str,
+    phone_start: int,
+) -> int | None:
+    lowered = text.lower()
+    nearest: int | None = None
+
+    for keyword in KEYWORDS:
+        position = lowered.rfind(
+            keyword,
+            0,
+            phone_start,
+        )
+
+        if position == -1:
+            continue
+
+        distance = phone_start - position
+
+        if nearest is None or distance < nearest:
+            nearest = distance
+
+    return nearest
+
+
 def _context_score(text: str) -> tuple[int, tuple[str, ...]]:
     lowered = " ".join(text.lower().split())
     score = 0
@@ -307,9 +342,20 @@ def extract_phones(html: str, page_url: str, domain: str) -> list[ExtractedPhone
 
     # 5. Visible body text fallback.
     body_text = soup.get_text(" ", strip=True)
+
     for match in PHONE_PATTERN.finditer(body_text):
         start, end = match.span()
-        context = body_text[max(0, start - 120):min(len(body_text), end + 120)]
+
+        context = body_text[
+            max(0, start - 120):
+            min(len(body_text), end + 120)
+        ]
+
+        keyword_distance = _keyword_distance(
+            body_text,
+            start,
+        )
+
         _append_candidate(
             found,
             match.group(0),
@@ -318,6 +364,7 @@ def extract_phones(html: str, page_url: str, domain: str) -> list[ExtractedPhone
             page_bonus=page_bonus,
             source="visible_text",
             context=context,
+            keyword_distance=keyword_distance,
         )
 
     return found
