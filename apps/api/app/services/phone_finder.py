@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+import logging
 import time
 from collections import defaultdict
 from dataclasses import asdict, dataclass
@@ -14,10 +14,16 @@ from .phone_parser import ExtractedPhone, extract_phones
 from .providers import clean_domain, is_public_email_domain
 from .website_crawler import crawl_company_website
 
+logger = logging.getLogger(__name__)
 
-DEBUG_DOMAINS: set[str] = {
-    "letko.net",
-}
+
+def _debug(domain: str, *values: object) -> None:
+    if _debug_enabled(domain):
+        message = " ".join(str(value) for value in values)
+        logger.warning(
+            "[PHONE FINDER DEBUG] %s",
+            message,
+        )
 
 
 @dataclass
@@ -373,16 +379,42 @@ async def find_phone_for_domain(
                 domain,
             )
 
-            print("=" * 60)
-            print(page.url)
-            print(
-                f"Phones found: {len(extracted_phones)}"
-            )
+          _debug(
+    domain,
+    "=" * 60,
+)
 
-            for phone in extracted_phones:
-                print(phone)
+_debug(
+    domain,
+    "PAGE:",
+    page.url,
+    "| PHONES FOUND:",
+    len(extracted_phones),
+)
 
-            print("=" * 60)
+for extracted_phone in extracted_phones:
+    _debug(
+        domain,
+        "PHONE:",
+        extracted_phone.phone,
+        "| SOURCE:",
+        extracted_phone.source,
+        "| SCORE:",
+        extracted_phone.score,
+        "| KEYWORD DISTANCE:",
+        extracted_phone.keyword_distance,
+        "| POSITION:",
+        extracted_phone.position_ratio,
+        "| HTML TAG:",
+        extracted_phone.html_tag,
+        "| SECTION:",
+        extracted_phone.section,
+    )
+
+_debug(
+    domain,
+    "=" * 60,
+)
 
         except Exception as exc:
             _debug(
