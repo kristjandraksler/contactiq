@@ -162,26 +162,27 @@ def _rank_candidates(
     best_single_score: dict[str, int] = defaultdict(int)
 
     for extracted, source_url in rows:
-    phone = extracted.phone
+        phone = extracted.phone
 
-    score = extracted.score
+        score = extracted.score
 
-    # Keyword distance bonus
-    if extracted.keyword_distance is not None:
-        if extracted.keyword_distance <= 10:
-            score += 15
-        elif extracted.keyword_distance <= 30:
-            score += 8
-        elif extracted.keyword_distance <= 60:
-            score += 4
+        # Keyword distance bonus
+        if extracted.keyword_distance is not None:
+            if extracted.keyword_distance <= 10:
+                score += 15
+            elif extracted.keyword_distance <= 30:
+                score += 8
+            elif extracted.keyword_distance <= 60:
+                score += 4
 
-    scores[phone] += score
+        scores[phone] += score
 
-    occurrences[phone] += 1
-    tel_links[phone] = (
-        tel_links[phone]
-        or extracted.from_tel_link
-    )
+        occurrences[phone] += 1
+        tel_links[phone] = (
+            tel_links[phone]
+            or extracted.from_tel_link
+        )
+
         sources[phone].add(extracted.source)
         pages[phone].add(source_url)
         page_labels[phone].add(_page_label(source_url))
