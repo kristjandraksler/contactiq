@@ -1,22 +1,151 @@
 from __future__ import annotations
 
+import asyncio
+import ipaddress
+import re
+import socket
 import time
 from collections import defaultdict
 from dataclasses import asdict, dataclass
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
-from .phone_parser import ExtractedPhone, extract_phones
-from .providers import clean_domain, is_public_email_domain
-from .website_crawler import crawl_company_website
+import httpx
+import phonenumbers
+from bs4 import BeautifulSoup
+from phonenumbers import PhoneNumberFormat
 
 
-# Debug se izpisuje samo za navedene domene.
-# Ko zaključimo diagnostiko, lahko množico izprazniš:
-# DEBUG_DOMAINS: set[str] = set()
-DEBUG_DOMAINS: set[str] = {
-    "letko.net",
+PHONE_PATTERN = re.compile(
+    r"""
+    (?:
+        (?:\+|00)\s?\d{1,3}
+        |
+        0
+    )
+    [\s()./-]*
+    \d
+    (?:[\s()./-]*\d){6,13}
+    """,
+    re.VERBOSE,
+)
+
+CONTACT_KEYWORDS = (
+    "kontakt",
+    "contact",
+    "contacts",
+    "about",
+    "o-nas",
+    "o_nas",
+    "o nas",
+    "impressum",
+    "imprint",
+    "team",
+    "podjetje",
+    "company",
+    "support",
+    "podpora",
+)
+
+PRIORITY_PATHS = (
+    "/kontakt",
+    "/kontakt/",
+    "/contact",
+    "/contact/",
+    "/contacts",
+    "/about",
+    "/about-us",
+    "/o-nas",
+    "/o-podjetju",
+    "/impressum",
+    "/imprint",
+)
+
+IGNORED_EXTENSIONS = (
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".webp",
+    ".svg",
+    ".pdf",
+    ".doc",
+    ".docx",
+    ".xls",
+    ".xlsx",
+    ".zip",
+    ".rar",
+    ".mp4",
+    ".mp3",
+)
+
+USER_AGENT = (
+    "Mozilla/5.0 (compatible; ContactIQ/1.0; "
+    "+public-business-contact-discovery)"
+)
+
+PUBLIC_EMAIL_DOMAINS = {
+    "gmail.com",
+    "googlemail.com",
+    "yahoo.com",
+    "yahoo.co.uk",
+    "yahoo.de",
+    "yahoo.fr",
+    "yahoo.it",
+    "yahoo.es",
+    "outlook.com",
+    "outlook.de",
+    "outlook.fr",
+    "hotmail.com",
+    "hotmail.co.uk",
+    "hotmail.de",
+    "hotmail.fr",
+    "live.com",
+    "live.co.uk",
+    "live.de",
+    "msn.com",
+    "icloud.com",
+    "me.com",
+    "mac.com",
+    "proton.me",
+    "protonmail.com",
+    "aol.com",
+    "gmx.com",
+    "gmx.de",
+    "gmx.at",
+    "gmx.ch",
+    "mail.com",
+    "zoho.com",
+    "yandex.com",
+    "yandex.ru",
+    "tutanota.com",
+    "tuta.com",
+    "fastmail.com",
+
+    # Slovenian and regional internet/mail providers.
+    # These may be used by legitimate businesses, but they are not the
+    # business website/domain and must never be scanned for a phone number.
+    "telemach.net",
+    "siol.net",
+    "t-2.net",
+    "amis.net",
+    "volja.net",
+    "email.si",
+    "guest.arnes.si",
+    "arnes.si",
+    "net.hr",
+    "vip.hr",
+    "iskon.hr",
+    "t-com.hr",
+    "mts.rs",
+    "eunet.rs",
+    "sbb.rs",
 }
+
+
+def is_public_email_domain(raw_domain: str) -> bool:
+    """Return True when the value belongs to a public/ISP mail provider."""
+    return clean_domain(raw_domain) in PUBLIC_EMAIL_DOMAINS
 
 
 @dataclass
@@ -24,12 +153,8 @@ class PhoneCandidate:
     phone: str
     score: int
     source_url: str
-    source: str
     occurrences: int
     from_tel_link: bool
-    source_diversity: int
-    page_diversity: int
-    evidence: list[str]
 
 
 @dataclass
@@ -48,156 +173,345 @@ class FinderResult:
         return asdict(self)
 
 
-def _debug_enabled(domain: str) -> bool:
-    return domain.lower() in DEBUG_DOMAINS
+def clean_domain(domain: str) -> str:
+    value = domain.strip().lower()
+
+    if "@" in value:
+        value = value.rsplit("@", 1)[1]
+
+    value = value.replace("http://", "").replace("https://", "")
+    value = value.split("/", 1)[0]
+    value = value.split(":", 1)[0]
+    value = value.strip(".")
+
+    if value.startswith("www."):
+        value = value[4:]
+
+    return value
 
 
-def _debug(domain: str, *values: object) -> None:
-    if _debug_enabled(domain):
-        print("[PHONE FINDER DEBUG]", *values, flush=True)
+def get_default_region(domain: str) -> str:
+    tld_regions = {
+        ".si": "SI",
+        ".hr": "HR",
+        ".at": "AT",
+        ".de": "DE",
+        ".it": "IT",
+        ".rs": "RS",
+        ".ba": "BA",
+        ".me": "ME",
+        ".mk": "MK",
+        ".hu": "HU",
+        ".ch": "CH",
+        ".cz": "CZ",
+        ".sk": "SK",
+        ".pl": "PL",
+        ".fr": "FR",
+        ".es": "ES",
+        ".nl": "NL",
+        ".be": "BE",
+        ".gb": "GB",
+        ".uk": "GB",
+        ".ie": "IE",
+        ".us": "US",
+        ".ca": "CA",
+        ".au": "AU",
+    }
+
+    for suffix, region in tld_regions.items():
+        if domain.endswith(suffix):
+            return region
+
+    return "SI"
 
 
-def _page_label(url: str) -> str:
-    path = (urlparse(url).path or "/").lower().rstrip("/") or "/"
+def normalize_phone(raw_phone: str, region: str) -> str | None:
+    value = raw_phone.strip()
 
-    if "kontakt" in path or "contact" in path:
-        return "contact_page"
+    if value.lower().startswith("tel:"):
+        value = value[4:]
 
-    if "impressum" in path or "imprint" in path:
-        return "imprint_page"
+    value = value.split(";", 1)[0]
+    value = value.split("?", 1)[0]
+    value = value.replace("\u00a0", " ")
 
-    if (
-        "about" in path
-        or "o-nas" in path
-        or "o-podjetju" in path
+    if value.startswith("00"):
+        value = f"+{value[2:]}"
+
+    try:
+        parsed = phonenumbers.parse(value, region)
+
+        if not phonenumbers.is_possible_number(parsed):
+            return None
+
+        if not phonenumbers.is_valid_number(parsed):
+            return None
+
+        return phonenumbers.format_number(
+            parsed,
+            PhoneNumberFormat.E164,
+        )
+
+    except phonenumbers.NumberParseException:
+        return None
+
+
+async def host_is_public(hostname: str) -> bool:
+    try:
+        address_info = await asyncio.to_thread(
+            socket.getaddrinfo,
+            hostname,
+            None,
+        )
+    except socket.gaierror:
+        return False
+
+    if not address_info:
+        return False
+
+    for item in address_info:
+        raw_ip = item[4][0]
+
+        try:
+            ip = ipaddress.ip_address(raw_ip)
+        except ValueError:
+            return False
+
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_multicast
+            or ip.is_reserved
+            or ip.is_unspecified
+        ):
+            return False
+
+    return True
+
+
+def same_registered_host(first_url: str, second_url: str) -> bool:
+    first_host = (urlparse(first_url).hostname or "").lower()
+    second_host = (urlparse(second_url).hostname or "").lower()
+
+    first_host = first_host.removeprefix("www.")
+    second_host = second_host.removeprefix("www.")
+
+    return first_host == second_host
+
+
+def is_contact_url(url: str) -> bool:
+    lowered = url.lower()
+    return any(keyword in lowered for keyword in CONTACT_KEYWORDS)
+
+
+def calculate_page_bonus(url: str) -> int:
+    lowered = url.lower()
+
+    if "kontakt" in lowered or "contact" in lowered:
+        return 35
+
+    if "impressum" in lowered or "imprint" in lowered:
+        return 25
+
+    if "about" in lowered or "o-nas" in lowered:
+        return 20
+
+    return 5
+
+
+def extract_contact_links(
+    html: str,
+    current_url: str,
+    website_url: str,
+) -> list[str]:
+    soup = BeautifulSoup(html, "html.parser")
+    links: list[str] = []
+
+    for anchor in soup.find_all("a", href=True):
+        href = str(anchor.get("href") or "").strip()
+
+        if not href:
+            continue
+
+        if href.startswith(("#", "mailto:", "tel:", "javascript:")):
+            continue
+
+        absolute_url = urljoin(current_url, href)
+        parsed = urlparse(absolute_url)
+
+        if parsed.scheme not in {"http", "https"}:
+            continue
+
+        if not same_registered_host(website_url, absolute_url):
+            continue
+
+        clean_url = absolute_url.split("#", 1)[0]
+
+        if clean_url.lower().endswith(IGNORED_EXTENSIONS):
+            continue
+
+        anchor_text = anchor.get_text(" ", strip=True).lower()
+        combined = f"{clean_url.lower()} {anchor_text}"
+
+        if any(keyword in combined for keyword in CONTACT_KEYWORDS):
+            links.append(clean_url)
+
+    return list(dict.fromkeys(links))
+
+
+def extract_candidates_from_html(
+    html: str,
+    page_url: str,
+    domain: str,
+) -> list[tuple[str, int, bool]]:
+    soup = BeautifulSoup(html, "html.parser")
+    region = get_default_region(domain)
+    page_bonus = calculate_page_bonus(page_url)
+
+    found: list[tuple[str, int, bool]] = []
+
+    for anchor in soup.find_all("a", href=True):
+        href = str(anchor.get("href") or "").strip()
+
+        if not href.lower().startswith("tel:"):
+            continue
+
+        normalized = normalize_phone(href, region)
+
+        if normalized:
+            found.append(
+                (
+                    normalized,
+                    100 + page_bonus,
+                    True,
+                )
+            )
+
+    visible_text = soup.get_text(" ", strip=True)
+
+    for match in PHONE_PATTERN.finditer(visible_text):
+        raw_phone = match.group(0)
+        normalized = normalize_phone(raw_phone, region)
+
+        if normalized:
+            found.append(
+                (
+                    normalized,
+                    35 + page_bonus,
+                    False,
+                )
+            )
+
+    return found
+
+
+async def fetch_html(
+    client: httpx.AsyncClient,
+    url: str,
+) -> tuple[str, str] | None:
+    try:
+        response = await client.get(url)
+
+        if response.status_code >= 400:
+            return None
+
+        content_type = response.headers.get(
+            "content-type",
+            "",
+        ).lower()
+
+        if (
+            "text/html" not in content_type
+            and "application/xhtml+xml" not in content_type
+        ):
+            return None
+
+        final_url = str(response.url)
+        final_host = urlparse(final_url).hostname
+
+        if not final_host:
+            return None
+
+        if not await host_is_public(final_host):
+            return None
+
+        return final_url, response.text
+
+    except (
+        httpx.TimeoutException,
+        httpx.NetworkError,
+        httpx.ProtocolError,
+        httpx.TooManyRedirects,
     ):
-        return "about_page"
-
-    if path == "/":
-        return "homepage"
-
-    return "other_page"
+        return None
 
 
-def _rank_candidates(
-    rows: list[tuple[ExtractedPhone, str]],
+async def resolve_website(
+    client: httpx.AsyncClient,
+    domain: str,
+) -> tuple[str, str] | None:
+    candidates = (
+        f"https://{domain}",
+        f"https://www.{domain}",
+        f"http://{domain}",
+        f"http://www.{domain}",
+    )
+
+    for candidate_url in candidates:
+        hostname = urlparse(candidate_url).hostname
+
+        if not hostname:
+            continue
+
+        if not await host_is_public(hostname):
+            continue
+
+        result = await fetch_html(client, candidate_url)
+
+        if result:
+            return result
+
+    return None
+
+
+def rank_candidates(
+    candidate_rows: list[tuple[str, int, bool, str]],
 ) -> list[PhoneCandidate]:
     scores: dict[str, int] = defaultdict(int)
     occurrences: dict[str, int] = defaultdict(int)
     tel_links: dict[str, bool] = defaultdict(bool)
-
-    sources: dict[str, set[str]] = defaultdict(set)
-    pages: dict[str, set[str]] = defaultdict(set)
-    page_labels: dict[str, set[str]] = defaultdict(set)
-    context_signals: dict[str, set[str]] = defaultdict(set)
-
-    best_source_url: dict[str, str] = {}
     best_source: dict[str, str] = {}
     best_single_score: dict[str, int] = defaultdict(int)
 
-    for extracted, source_url in rows:
-        phone = extracted.phone
-
-        scores[phone] += extracted.score
+    for phone, score, from_tel_link, source_url in candidate_rows:
+        scores[phone] += score
         occurrences[phone] += 1
 
-        tel_links[phone] = (
-            tel_links[phone]
-            or extracted.from_tel_link
-        )
+        if from_tel_link:
+            tel_links[phone] = True
 
-        sources[phone].add(extracted.source)
-        pages[phone].add(source_url)
-        page_labels[phone].add(_page_label(source_url))
-
-        context_signals[phone].update(
-            extracted.context_signals
-        )
-
-        if extracted.score > best_single_score[phone]:
-            best_single_score[phone] = extracted.score
-            best_source_url[phone] = source_url
-            best_source[phone] = extracted.source
+        if score > best_single_score[phone]:
+            best_single_score[phone] = score
+            best_source[phone] = source_url
 
     ranked: list[PhoneCandidate] = []
 
-    for phone, raw_score in scores.items():
-        occurrence_bonus = min(
-            max(occurrences[phone] - 1, 0) * 5,
-            20,
+    for phone, score in scores.items():
+        repeated_bonus = min(
+            max(occurrences[phone] - 1, 0) * 12,
+            48,
         )
 
-        diversity_bonus = {
-            1: 0,
-            2: 20,
-            3: 38,
-            4: 52,
-            5: 62,
-        }.get(len(sources[phone]), 70)
-
-        page_bonus = min(
-            max(len(pages[phone]) - 1, 0) * 12,
-            36,
-        )
-
-        labels = page_labels[phone]
-        cross_page_bonus = 0
-
-        if (
-            "homepage" in labels
-            and "contact_page" in labels
-        ):
-            cross_page_bonus = 25
-
-        elif (
-            "contact_page" in labels
-            and len(pages[phone]) >= 2
-        ):
-            cross_page_bonus = 15
-
-        final_score = (
-            raw_score
-            + occurrence_bonus
-            + diversity_bonus
-            + page_bonus
-            + cross_page_bonus
-        )
-
-        evidence = [
-            f"source:{source}"
-            for source in sorted(sources[phone])
-        ]
-
-        evidence.extend(
-            f"page:{label}"
-            for label in sorted(labels)
-        )
-
-        evidence.extend(
-            sorted(context_signals[phone])
-        )
-
-        if len(pages[phone]) >= 2:
-            evidence.append(
-                f"repeated_on_{len(pages[phone])}_pages"
-            )
-
-        if len(sources[phone]) >= 2:
-            evidence.append(
-                f"source_diversity:{len(sources[phone])}"
-            )
+        final_score = score + repeated_bonus
 
         ranked.append(
             PhoneCandidate(
                 phone=phone,
                 score=final_score,
-                source_url=best_source_url[phone],
-                source=best_source[phone],
+                source_url=best_source[phone],
                 occurrences=occurrences[phone],
                 from_tel_link=tel_links[phone],
-                source_diversity=len(sources[phone]),
-                page_diversity=len(pages[phone]),
-                evidence=evidence,
             )
         )
 
@@ -205,9 +519,6 @@ def _rank_candidates(
         ranked,
         key=lambda candidate: (
             candidate.score,
-            candidate.source_diversity,
-            candidate.page_diversity,
-            candidate.source == "schema_org",
             candidate.from_tel_link,
             candidate.occurrences,
         ),
@@ -215,55 +526,31 @@ def _rank_candidates(
     )
 
 
-def _confidence(candidate: PhoneCandidate) -> int:
-    source_base = {
-        "schema_org": 80,
-        "microdata": 78,
-        "tel_link": 76,
-        "footer": 58,
-        "visible_text": 48,
-    }
+def score_to_confidence(candidate: PhoneCandidate) -> int:
+    confidence = 40
 
-    confidence = source_base.get(
-        candidate.source,
-        45,
-    )
+    if candidate.from_tel_link:
+        confidence += 30
 
-    confidence += min(
-        max(candidate.source_diversity - 1, 0) * 7,
-        21,
-    )
+    if candidate.score >= 100:
+        confidence += 8
 
-    confidence += min(
-        max(candidate.page_diversity - 1, 0) * 5,
-        15,
-    )
+    if candidate.score >= 180:
+        confidence += 8
+
+    if candidate.score >= 250:
+        confidence += 6
 
     if candidate.occurrences >= 2:
-        confidence += 3
-
-    if (
-        candidate.from_tel_link
-        and candidate.source != "tel_link"
-    ):
-        confidence += 3
-
-    if any(
-        item.startswith("positive_context:")
-        for item in candidate.evidence
-    ):
-        confidence += 4
-
-    if any(
-        item.startswith("negative_context:")
-        for item in candidate.evidence
-    ):
-        confidence -= 18
-
-    if "page:contact_page" in candidate.evidence:
         confidence += 5
 
-    return max(1, min(confidence, 99))
+    if candidate.occurrences >= 3:
+        confidence += 5
+
+    if candidate.occurrences >= 4:
+        confidence += 4
+
+    return min(confidence, 99)
 
 
 async def find_phone_for_domain(
@@ -273,57 +560,9 @@ async def find_phone_for_domain(
     started_at = time.perf_counter()
     domain = clean_domain(raw_domain)
 
-    def duration_ms() -> int:
-        return int(
-            (time.perf_counter() - started_at) * 1000
-        )
-
-    _debug(domain, "=" * 70)
-    _debug(domain, "RAW INPUT:", raw_domain)
-    _debug(domain, "CLEAN DOMAIN:", domain)
-
     if not domain or "." not in domain:
-        _debug(domain, "RESULT: invalid domain")
-
-        return FinderResult(
-            status="NOT_FOUND",
-            website=None,
-            phone=None,
-            confidence=None,
-            source_url=None,
-            pages_scanned=0,
-            scan_duration_ms=duration_ms(),
-            candidates=[],
-            error="Domena ni veljavna.",
-        )
-
-    if is_public_email_domain(domain):
-        _debug(domain, "RESULT: public email domain")
-
-        return FinderResult(
-            status="NOT_FOUND",
-            website=None,
-            phone=None,
-            confidence=None,
-            source_url=None,
-            pages_scanned=0,
-            scan_duration_ms=duration_ms(),
-            candidates=[],
-            error=None,
-        )
-
-    try:
-        website, pages = await crawl_company_website(
-            domain,
-            max_pages=max_pages,
-        )
-
-    except Exception as exc:
-        _debug(
-            domain,
-            "CRAWLER EXCEPTION:",
-            type(exc).__name__,
-            str(exc),
+        duration = int(
+            (time.perf_counter() - started_at) * 1000
         )
 
         return FinderResult(
@@ -333,164 +572,216 @@ async def find_phone_for_domain(
             confidence=None,
             source_url=None,
             pages_scanned=0,
-            scan_duration_ms=duration_ms(),
+            scan_duration_ms=duration,
             candidates=[],
-            error=(
-                "Tehnična napaka pri obdelavi: "
-                f"{type(exc).__name__}"
-            ),
+            error="Domena ni veljavna.",
         )
 
-    _debug(domain, "RESOLVED WEBSITE:", website)
-    _debug(domain, "PAGES CRAWLED:", len(pages))
-
-    for index, page in enumerate(pages, start=1):
-        _debug(
-            domain,
-            f"PAGE {index}:",
-            page.url,
-            f"HTML LENGTH={len(page.html)}",
-        )
-
-    if not website or not pages:
-        _debug(
-            domain,
-            "RESULT: crawler returned no pages",
+    if domain in PUBLIC_EMAIL_DOMAINS:
+        duration = int(
+            (time.perf_counter() - started_at) * 1000
         )
 
         return FinderResult(
-            status="NOT_FOUND",
-            website=website,
+            status="EMAIL_FOUND",
+            website=None,
             phone=None,
             confidence=None,
             source_url=None,
             pages_scanned=0,
-            scan_duration_ms=duration_ms(),
+            scan_duration_ms=duration,
             candidates=[],
-            error=None,
+            error=(
+                "E-poštni naslov je veljaven, vendar domena pripada "
+                "javnemu ponudniku e-pošte, zato telefona ne iščemo."
+            ),
         )
 
-    rows: list[tuple[ExtractedPhone, str]] = []
+    timeout = httpx.Timeout(
+        timeout=12.0,
+        connect=6.0,
+        read=12.0,
+        write=6.0,
+        pool=6.0,
+    )
 
-    for page in pages:
-        try:
-            extracted_phones = extract_phones(
-                page.html,
-                page.url,
-                domain,
-            )
+    limits = httpx.Limits(
+        max_connections=10,
+        max_keepalive_connections=5,
+    )
 
-        except Exception as exc:
-            # Napaka na eni strani ne sme prekiniti
-            # celotnega enrichment procesa.
-            _debug(
-                domain,
-                "PARSER ERROR:",
-                page.url,
-                type(exc).__name__,
-                str(exc),
-            )
-            continue
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": (
+            "text/html,application/xhtml+xml,"
+            "application/xml;q=0.9,*/*;q=0.8"
+        ),
+        "Accept-Language": "sl,en;q=0.8",
+    }
 
-        _debug(
+    candidate_rows: list[tuple[str, int, bool, str]] = []
+    pages_scanned = 0
+    website: str | None = None
+
+    async with httpx.AsyncClient(
+        timeout=timeout,
+        limits=limits,
+        headers=headers,
+        follow_redirects=True,
+    ) as client:
+        resolved = await resolve_website(
+            client,
             domain,
-            "EXTRACTED FROM PAGE:",
-            page.url,
-            "COUNT:",
-            len(extracted_phones),
         )
 
-        for extracted in extracted_phones:
-            rows.append((extracted, page.url))
-
-            _debug(
-                domain,
-                "  PHONE:",
-                extracted.phone,
-                "| SOURCE:",
-                extracted.source,
-                "| SCORE:",
-                extracted.score,
-                "| TEL LINK:",
-                extracted.from_tel_link,
-                "| CONTEXT:",
-                extracted.context_signals,
+        if not resolved:
+            duration = int(
+                (time.perf_counter() - started_at) * 1000
             )
 
-    _debug(domain, "TOTAL EXTRACTED ROWS:", len(rows))
+            return FinderResult(
+                status="FAILED",
+                website=None,
+                phone=None,
+                confidence=None,
+                source_url=None,
+                pages_scanned=0,
+                scan_duration_ms=duration,
+                candidates=[],
+                error=(
+                    "Spletne strani domene ni bilo "
+                    "mogoče odpreti."
+                ),
+            )
 
-    ranked = _rank_candidates(rows)
+        website, homepage_html = resolved
 
-    _debug(domain, "RANKED CANDIDATES:", len(ranked))
+        queue: list[str] = [website]
+        queued: set[str] = {website}
+        visited: set[str] = set()
 
-    for index, candidate in enumerate(
-        ranked[:10],
-        start=1,
-    ):
-        _debug(
-            domain,
-            f"CANDIDATE {index}:",
-            candidate.phone,
-            "| SCORE:",
-            candidate.score,
-            "| CONFIDENCE:",
-            _confidence(candidate),
-            "| SOURCE:",
-            candidate.source,
-            "| OCCURRENCES:",
-            candidate.occurrences,
-            "| SOURCE DIVERSITY:",
-            candidate.source_diversity,
-            "| PAGE DIVERSITY:",
-            candidate.page_diversity,
-            "| URL:",
-            candidate.source_url,
-            "| EVIDENCE:",
-            candidate.evidence,
+        cached_pages: dict[str, str] = {
+            website: homepage_html,
+        }
+
+        for path in PRIORITY_PATHS:
+            priority_url = urljoin(
+                website,
+                path,
+            )
+
+            if priority_url not in queued:
+                queue.append(priority_url)
+                queued.add(priority_url)
+
+        homepage_links = extract_contact_links(
+            homepage_html,
+            website,
+            website,
         )
+
+        for link in homepage_links:
+            if link not in queued:
+                queue.append(link)
+                queued.add(link)
+
+        while queue and pages_scanned < max_pages:
+            current_url = queue.pop(0)
+
+            if current_url in visited:
+                continue
+
+            visited.add(current_url)
+
+            html = cached_pages.get(current_url)
+            final_url = current_url
+
+            if html is None:
+                fetched = await fetch_html(
+                    client,
+                    current_url,
+                )
+
+                if not fetched:
+                    continue
+
+                final_url, html = fetched
+
+            if not same_registered_host(
+                website,
+                final_url,
+            ):
+                continue
+
+            pages_scanned += 1
+
+            extracted = extract_candidates_from_html(
+                html=html,
+                page_url=final_url,
+                domain=domain,
+            )
+
+            for phone, score, from_tel_link in extracted:
+                candidate_rows.append(
+                    (
+                        phone,
+                        score,
+                        from_tel_link,
+                        final_url,
+                    )
+                )
+
+            if pages_scanned < max_pages:
+                discovered_links = extract_contact_links(
+                    html,
+                    final_url,
+                    website,
+                )
+
+                for link in discovered_links:
+                    if (
+                        link not in queued
+                        and link not in visited
+                    ):
+                        queue.append(link)
+                        queued.add(link)
+
+    duration = int(
+        (time.perf_counter() - started_at) * 1000
+    )
+
+    ranked = rank_candidates(candidate_rows)
 
     if not ranked:
-        _debug(
-            domain,
-            "RESULT: NOT_FOUND — no ranked candidates",
-        )
-
         return FinderResult(
             status="NOT_FOUND",
             website=website,
             phone=None,
             confidence=None,
             source_url=None,
-            pages_scanned=len(pages),
-            scan_duration_ms=duration_ms(),
+            pages_scanned=pages_scanned,
+            scan_duration_ms=duration,
             candidates=[],
             error=None,
         )
 
     best = ranked[0]
-    confidence = _confidence(best)
+    confidence = score_to_confidence(best)
 
-    _debug(
-        domain,
-        "RESULT: MATCHED",
-        "| PHONE:",
-        best.phone,
-        "| CONFIDENCE:",
-        confidence,
-        "| SOURCE:",
-        best.source,
-        "| URL:",
-        best.source_url,
+    status = (
+        "MATCHED"
+        if confidence >= 75
+        else "PARTIAL_MATCH"
     )
 
     return FinderResult(
-        status="MATCHED",
+        status=status,
         website=website,
         phone=best.phone,
         confidence=confidence,
         source_url=best.source_url,
-        pages_scanned=len(pages),
-        scan_duration_ms=duration_ms(),
+        pages_scanned=pages_scanned,
+        scan_duration_ms=duration,
         candidates=[
             asdict(candidate)
             for candidate in ranked[:5]
