@@ -4,17 +4,17 @@ import asyncio
 import logging
 import os
 import socket
+import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from app.database import get_supabase
-from app.services.company_cache import (
-    get_cached_company_result,
-    save_company_result,
-)
-from app.services.phone_finder import FinderResult, find_phone_for_domain
+from app.services.company_cache import save_company_result
+from app.services.person_matcher import find_person_phone_in_pages
+from app.services.phone_finder import FinderResult, find_phone_from_pages
+from app.services.website_crawler import crawl_company_website
 from app.services.providers import clean_domain
 
 
@@ -189,153 +189,71 @@ def update_job(
     )
 
 
-def update_email_targets_for_domain(
-    domain: str,
-    result: FinderResult,
-    company_id: str | None,
-) -> int:
+def get_contacts_for_domain(domain: str) -> list[dict[str, Any]]:
     supabase = get_supabase()
-
-    payload: dict[str, Any] = {
-        "website": result.website,
-        "phone": result.phone,
-        "confidence": result.confidence,
-        "source_url": result.source_url,
-        "pages_scanned": result.pages_scanned,
-        "scan_duration_ms": result.scan_duration_ms,
-        "last_scan": utc_now_iso(),
-        "status": result.status,
-        "last_error": result.error,
-    }
-
-    if company_id:
-        payload["company_id"] = company_id
-
     response = (
         supabase.table("email_targets")
-        .update(payload)
+        .select("id,email,domain,scan_attempts")
         .eq("domain", domain)
         .execute()
     )
+    return response.data or []
 
-    return len(response.data or [])
+def update_contact(contact_id: str, payload: dict[str, Any]) -> None:
+    supabase = get_supabase()
+    supabase.table("email_targets").update(payload).eq("id", contact_id).execute()
 
-
-async def resolve_domain(
-    domain: str,
-) -> tuple[FinderResult, str | None, bool]:
-    cached_result, cached_company_id = (
-        await asyncio.to_thread(
-            get_cached_company_result,
-            domain,
-        )
-    )
-
-    if cached_result is not None:
-        return (
-            cached_result,
-            cached_company_id,
-            True,
-        )
-
-    result = await find_phone_for_domain(
-        raw_domain=domain,
-        max_pages=MAX_PAGES,
-    )
-
-    company_id = await asyncio.to_thread(
-        save_company_result,
-        domain,
-        result,
-    )
-
-    return result, company_id, False
-
+def _payload(result: FinderResult, company_id: str | None, attempts: int) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "website": result.website, "phone": result.phone,
+        "confidence": result.confidence, "source_url": result.source_url,
+        "pages_scanned": result.pages_scanned, "scan_attempts": attempts,
+        "scan_duration_ms": result.scan_duration_ms, "last_scan": utc_now_iso(),
+        "status": result.status, "last_error": result.error,
+    }
+    if company_id:
+        payload["company_id"] = company_id
+    return payload
 
 async def process_job(job: DomainJob) -> None:
     domain = clean_domain(job.domain)
-
     if not domain or "." not in domain:
-        update_job(
-            job.id,
-            {
-                "status": "NOT_FOUND",
-                "finished_at": utc_now_iso(),
-                "worker_id": None,
-                "last_error": "Invalid domain.",
-            },
-        )
+        update_job(job.id, {"status": "NOT_FOUND", "finished_at": utc_now_iso(), "worker_id": None, "last_error": "Invalid domain."})
         return
-
+    started_at = time.perf_counter()
     try:
-        result, company_id, from_cache = (
-            await resolve_domain(domain)
-        )
-
-        updated_contacts = await asyncio.to_thread(
-            update_email_targets_for_domain,
-            domain,
-            result,
-            company_id,
-        )
-
-        if result.status in {
-            "MATCHED",
-            "NOT_FOUND",
-        }:
-            job_status = result.status
-            next_retry_at = None
-        else:
-            job_status = "FAILED"
-            next_retry_at = retry_at_iso(job.attempts)
-
-        update_job(
-            job.id,
-            {
-                "status": job_status,
-                "finished_at": utc_now_iso(),
-                "worker_id": None,
-                "last_error": result.error,
-                "next_retry_at": next_retry_at,
-            },
-        )
-
-        logger.info(
-            (
-                "domain=%s status=%s cached=%s "
-                "contacts=%s phone=%s"
-            ),
-            domain,
-            result.status,
-            from_cache,
-            updated_contacts,
-            result.phone,
-        )
-
+        website, pages = await crawl_company_website(domain, max_pages=MAX_PAGES)
+        company_result = find_phone_from_pages(domain=domain, website=website, pages=pages, started_at=started_at)
+        company_id = await asyncio.to_thread(save_company_result, domain, company_result)
+        contacts = await asyncio.to_thread(get_contacts_for_domain, domain)
+        person_matches = 0
+        for contact in contacts:
+            email = str(contact.get("email") or "")
+            person = find_person_phone_in_pages(email, pages, domain)
+            if person.matched and person.phone:
+                person_matches += 1
+                chosen = FinderResult(
+                    status="MATCHED", website=website, phone=person.phone,
+                    confidence=person.confidence, source_url=person.source_url,
+                    pages_scanned=len(pages),
+                    scan_duration_ms=int((time.perf_counter()-started_at)*1000),
+                    candidates=[{"phone": person.phone, "score": person.score, "source": "person_block", "source_url": person.source_url, "evidence": list(person.evidence), "person_name": person.person_name}],
+                    error=None,
+                    confidence_label="VERY_HIGH" if (person.confidence or 0) >= 90 else "HIGH" if (person.confidence or 0) >= 75 else "MEDIUM" if (person.confidence or 0) >= 50 else "LOW",
+                )
+            else:
+                chosen = company_result
+            await asyncio.to_thread(
+                update_contact, str(contact["id"]),
+                _payload(chosen, company_id, int(contact.get("scan_attempts") or 0)+1),
+            )
+        job_status = company_result.status if company_result.status in {"MATCHED", "NOT_FOUND"} else "FAILED"
+        update_job(job.id, {"status": job_status, "finished_at": utc_now_iso(), "worker_id": None, "last_error": company_result.error, "next_retry_at": None if job_status != "FAILED" else retry_at_iso(job.attempts)})
+        logger.info("domain=%s company_status=%s contacts=%s person_matches=%s", domain, company_result.status, len(contacts), person_matches)
     except Exception as exc:
         terminal_failure = job.attempts >= MAX_RETRIES
-
-        update_job(
-            job.id,
-            {
-                "status": "FAILED",
-                "finished_at": utc_now_iso(),
-                "worker_id": None,
-                "last_error": (
-                    f"{type(exc).__name__}: {exc}"
-                ),
-                "next_retry_at": (
-                    None
-                    if terminal_failure
-                    else retry_at_iso(job.attempts)
-                ),
-            },
-        )
-
-        logger.exception(
-            "Domain job failed: %s",
-            domain,
-        )
+        update_job(job.id, {"status": "FAILED", "finished_at": utc_now_iso(), "worker_id": None, "last_error": f"{type(exc).__name__}: {exc}", "next_retry_at": None if terminal_failure else retry_at_iso(job.attempts)})
+        logger.exception("Domain job failed: %s", domain)
 
 
 async def worker_loop() -> None:
