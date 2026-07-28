@@ -10,6 +10,13 @@ import {
   isPublicEmailDomain,
 } from "./contacts/utils";
 
+type CountryStat = {
+  code: string;
+  name: string | null;
+  flag: string | null;
+  count: number;
+};
+
 type Stats = {
   emails_total: number;
   pending: number;
@@ -19,6 +26,9 @@ type Stats = {
   failed: number;
   completed: number;
   success_rate: number;
+  countries?: CountryStat[];
+  countries_total?: number;
+  unknown_country?: number;
 };
 
 type Contact = {
@@ -29,6 +39,10 @@ type Contact = {
   confidence: number | null;
   status: string;
   created_at: string;
+  country_code?: string | null;
+  country_name?: string | null;
+  country_flag?: string | null;
+  country_confidence?: number | null;
 };
 
 type ContactsResponse = {
@@ -306,6 +320,17 @@ export default function Home() {
       icon: "chart",
     },
     {
+      label: "Države",
+      value: stats?.countries_total ?? 0,
+      helper:
+        stats?.countries?.[0]
+          ? `${stats.countries[0].flag ?? "🌍"} ${
+              stats.countries[0].name ?? stats.countries[0].code
+            }: ${formatNumber(stats.countries[0].count)}`
+          : "Geo podatki še niso na voljo",
+      icon: "globe",
+    },
+    {
       label: "V obdelavi",
       value: stats?.pending ?? 0,
       helper: `${formatNumber(withoutPhone)} brez telefona · ${formatNumber(realFailures)} napak`,
@@ -579,7 +604,17 @@ export default function Home() {
       <section className="metricsGrid">
         {metricCards.map((metric) => (
           <article className="metricCard" key={metric.label}>
-            <div className={`metricIcon ${metric.icon}`}>{metric.icon === "phone" ? "↗" : metric.icon === "chart" ? "%" : metric.icon === "spark" ? "✦" : "◎"}</div>
+            <div className={`metricIcon ${metric.icon}`}>
+              {metric.icon === "phone"
+                ? "↗"
+                : metric.icon === "chart"
+                  ? "%"
+                  : metric.icon === "spark"
+                    ? "✦"
+                    : metric.icon === "globe"
+                      ? "🌍"
+                      : "◎"}
+            </div>
             <div>
               <span>{metric.label}</span>
               <strong>
@@ -633,6 +668,7 @@ export default function Home() {
                 <tr>
                   <th>Kontakt</th>
                   <th>Domena</th>
+                  <th>Država</th>
                   <th>Telefon</th>
                   <th>Status</th>
                   <th>Confidence</th>
@@ -653,6 +689,11 @@ export default function Home() {
                         <small>Dodano v bazo</small>
                       </td>
                       <td>{contact.domain}</td>
+                      <td>
+                        {contact.country_code
+                          ? `${contact.country_flag ?? "🌍"} ${contact.country_code}`
+                          : "—"}
+                      </td>
                       <td className="phoneCell">{formatPhone(contact.phone)}</td>
                       <td>
                         <span className={`statusBadge ${getStatusClass(displayStatus)}`}>

@@ -38,6 +38,22 @@ import {
   readErrorMessage,
 } from "./utils";
 
+type CountryOption = {
+  code: string;
+  name: string | null;
+  flag: string | null;
+  count: number;
+};
+
+type GeoContact = Contact & {
+  country_code?: string | null;
+  country_name?: string | null;
+  country_flag?: string | null;
+  country_confidence?: number | null;
+  country_source?: string | null;
+  person_match_type?: string | null;
+};
+
 export default function ContactsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
 
@@ -57,6 +73,8 @@ export default function ContactsPage() {
   const [searchInput, setSearchInput] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
   const [status, setStatus] = useState("");
+  const [country, setCountry] = useState("");
+  const [countries, setCountries] = useState<CountryOption[]>([]);
   const [page, setPage] = useState(1);
 
   const [loading, setLoading] = useState(true);
@@ -99,6 +117,10 @@ export default function ContactsPage() {
         params.set("status", status);
       }
 
+      if (country) {
+        params.set("country", country);
+      }
+
       const response = await fetch(
         `${API_URL}/contacts?${params.toString()}`,
         {
@@ -137,11 +159,34 @@ export default function ContactsPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeSearch, page, pageSize, status]);
+  }, [activeSearch, country, page, pageSize, status]);
 
   useEffect(() => {
     void loadContacts();
   }, [loadContacts]);
+
+  useEffect(() => {
+    async function loadCountries() {
+      try {
+        const response = await fetch(
+          `${API_URL}/contacts/countries`,
+          { cache: "no-store" },
+        );
+
+        if (!response.ok) return;
+
+        const data = (await response.json()) as {
+          items: CountryOption[];
+        };
+
+        setCountries(data.items);
+      } catch {
+        setCountries([]);
+      }
+    }
+
+    void loadCountries();
+  }, []);
 
   const selectableContacts = useMemo(
     () =>
@@ -193,6 +238,7 @@ export default function ContactsPage() {
     setSearchInput("");
     setActiveSearch("");
     setStatus("");
+    setCountry("");
     setPage(1);
     setNotice(null);
     setSelectedIds([]);
@@ -202,6 +248,15 @@ export default function ContactsPage() {
     event: ChangeEvent<HTMLSelectElement>,
   ) {
     setStatus(event.target.value);
+    setPage(1);
+    setNotice(null);
+    setSelectedIds([]);
+  }
+
+  function handleCountryChange(
+    event: ChangeEvent<HTMLSelectElement>,
+  ) {
+    setCountry(event.target.value);
     setPage(1);
     setNotice(null);
     setSelectedIds([]);
@@ -759,6 +814,20 @@ export default function ContactsPage() {
               ))}
             </select>
 
+            <select
+              value={country}
+              onChange={handleCountryChange}
+              aria-label="Filtriraj po državi"
+            >
+              <option value="">Vse države</option>
+              {countries.map((item) => (
+                <option key={item.code} value={item.code}>
+                  {item.flag ?? "🌍"}{" "}
+                  {item.name ?? item.code} ({item.count})
+                </option>
+              ))}
+            </select>
+
             <button
               type="submit"
               disabled={loading || bulkLoading}
@@ -766,7 +835,7 @@ export default function ContactsPage() {
               Išči
             </button>
 
-            {(activeSearch || status) && (
+            {(activeSearch || status || country) && (
               <button
                 type="button"
                 className="ghostButton"
@@ -860,7 +929,7 @@ export default function ContactsPage() {
               kontaktov.
             </p>
 
-            {(activeSearch || status) && (
+            {(activeSearch || status || country) && (
               <button
                 type="button"
                 className="secondaryButton"
@@ -904,6 +973,7 @@ export default function ContactsPage() {
 
                     <th>E-mail</th>
                     <th>Domena</th>
+                    <th>Država</th>
                     <th>Telefon</th>
                     <th>Status</th>
                     <th>Confidence</th>
@@ -971,6 +1041,32 @@ export default function ContactsPage() {
                           ) : (
                             contact.domain
                           )}
+                        </td>
+
+                        <td>
+                          {(() => {
+                            const geo = contact as GeoContact;
+
+                            return geo.country_code ? (
+                              <span
+                                title={
+                                  geo.country_source
+                                    ? `Vir: ${geo.country_source}${
+                                        geo.country_confidence !== null &&
+                                        geo.country_confidence !== undefined
+                                          ? ` · ${geo.country_confidence}%`
+                                          : ""
+                                      }`
+                                    : undefined
+                                }
+                              >
+                                {geo.country_flag ?? "🌍"}{" "}
+                                {geo.country_code}
+                              </span>
+                            ) : (
+                              "—"
+                            );
+                          })()}
                         </td>
 
                         <td>

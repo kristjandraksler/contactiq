@@ -12,6 +12,7 @@ from typing import Any
 
 from app.database import get_supabase
 from app.services.company_cache import save_company_result
+from app.services.country_detector import country_payload, detect_country
 from app.services.person_matcher import find_person_phone_in_pages
 from app.services.person_search import search_public_mailbox_person
 from app.services.phone_finder import FinderResult, find_phone_from_pages
@@ -204,7 +205,13 @@ def update_contact(contact_id: str, payload: dict[str, Any]) -> None:
     supabase = get_supabase()
     supabase.table("email_targets").update(payload).eq("id", contact_id).execute()
 
-def _payload(result: FinderResult, company_id: str | None, attempts: int) -> dict[str, Any]:
+def _payload(
+    result: FinderResult,
+    company_id: str | None,
+    attempts: int,
+    country: Any,
+    person_match_type: str,
+) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "website": result.website, "phone": result.phone,
         "confidence": result.confidence, "source_url": result.source_url,
@@ -212,6 +219,8 @@ def _payload(result: FinderResult, company_id: str | None, attempts: int) -> dic
         "scan_duration_ms": result.scan_duration_ms, "last_scan": utc_now_iso(),
         "status": result.status, "last_error": result.error,
     }
+    payload.update(country_payload(country))
+    payload["person_match_type"] = person_match_type
     if company_id:
         payload["company_id"] = company_id
     return payload
@@ -271,6 +280,13 @@ async def process_job(job: DomainJob) -> None:
                     public_result.phone,
                 )
 
+                public_country = detect_country(
+                    phone=public_result.phone,
+                    website_or_domain=None,
+                    pages=None,
+                    allow_tld=False,
+                )
+
                 await asyncio.to_thread(
                     update_contact,
                     str(contact["id"]),
@@ -278,6 +294,12 @@ async def process_job(job: DomainJob) -> None:
                         public_result,
                         None,
                         attempts,
+                        public_country,
+                        (
+                            "public_person"
+                            if public_result.status == "MATCHED"
+                            else "none"
+                        ),
                     ),
                 )
 
@@ -343,10 +365,18 @@ async def process_job(job: DomainJob) -> None:
             started_at=started_at,
         )
 
+        company_country = detect_country(
+            phone=company_result.phone,
+            website_or_domain=website or domain,
+            pages=pages,
+            allow_tld=True,
+        )
+
         company_id = await asyncio.to_thread(
             save_company_result,
             domain,
             company_result,
+            company_country,
         )
 
         person_matches = 0
@@ -437,6 +467,19 @@ async def process_job(job: DomainJob) -> None:
                         or 0
                     )
                     + 1,
+                    detect_country(
+                        phone=chosen.phone,
+                        website_or_domain=website or domain,
+                        pages=pages,
+                        allow_tld=True,
+                    ),
+                    (
+                        "person_phone"
+                        if person.matched and person.phone
+                        else "company_phone"
+                        if chosen.status == "MATCHED"
+                        else "none"
+                    ),
                 ),
             )
 

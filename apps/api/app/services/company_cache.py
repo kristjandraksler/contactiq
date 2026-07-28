@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from app.database import get_supabase
+from app.services.country_detector import CountryResult, country_payload
 from app.services.phone_finder import FinderResult
 from app.services.providers import clean_domain, is_public_email_domain
 
@@ -24,7 +25,14 @@ COMPANY_CACHE_FIELDS = (
     "phone_scan_duration_ms,"
     "phone_pages_scanned,"
     "phone_candidates,"
-    "last_crawled_at"
+    "last_crawled_at,"
+    "country_code,"
+    "country_name,"
+    "country_flag,"
+    "country_confidence,"
+    "country_source,"
+    "language_code,"
+    "timezone_name"
 )
 
 
@@ -139,6 +147,7 @@ def get_cached_company_result(
 def save_company_result(
     raw_domain: str,
     result: FinderResult,
+    country: CountryResult | None = None,
 ) -> str | None:
     domain = clean_domain(raw_domain)
 
@@ -185,6 +194,9 @@ def save_company_result(
         ),
         "last_crawled_at": now,
     }
+
+    if country is not None:
+        payload.update(country_payload(country))
 
     supabase = get_supabase()
 
