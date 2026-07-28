@@ -13,9 +13,10 @@ from typing import Any
 from app.database import get_supabase
 from app.services.company_cache import save_company_result
 from app.services.person_matcher import find_person_phone_in_pages
+from app.services.person_search import search_public_mailbox_person
 from app.services.phone_finder import FinderResult, find_phone_from_pages
 from app.services.website_crawler import crawl_company_website
-from app.services.providers import clean_domain
+from app.services.providers import clean_domain, is_public_email_domain
 
 
 logging.basicConfig(
@@ -217,43 +218,291 @@ def _payload(result: FinderResult, company_id: str | None, attempts: int) -> dic
 
 async def process_job(job: DomainJob) -> None:
     domain = clean_domain(job.domain)
+
     if not domain or "." not in domain:
-        update_job(job.id, {"status": "NOT_FOUND", "finished_at": utc_now_iso(), "worker_id": None, "last_error": "Invalid domain."})
+        update_job(
+            job.id,
+            {
+                "status": "NOT_FOUND",
+                "finished_at": utc_now_iso(),
+                "worker_id": None,
+                "last_error": "Invalid domain.",
+                "next_retry_at": None,
+            },
+        )
         return
+
     started_at = time.perf_counter()
+
     try:
-        website, pages = await crawl_company_website(domain, max_pages=MAX_PAGES)
-        company_result = find_phone_from_pages(domain=domain, website=website, pages=pages, started_at=started_at)
-        company_id = await asyncio.to_thread(save_company_result, domain, company_result)
-        contacts = await asyncio.to_thread(get_contacts_for_domain, domain)
+        contacts = await asyncio.to_thread(
+            get_contacts_for_domain,
+            domain,
+        )
+
+        # Public mailbox / ISP domains must never be crawled as companies.
+        # Each e-mail is searched as a person. If no reliable public match
+        # exists, the contact is saved as NOT_FOUND.
+        if is_public_email_domain(domain):
+            matched_count = 0
+            not_found_count = 0
+            failed_count = 0
+
+            for contact in contacts:
+                email = str(contact.get("email") or "")
+                attempts = (
+                    int(contact.get("scan_attempts") or 0)
+                    + 1
+                )
+
+                public_result = (
+                    await search_public_mailbox_person(
+                        email
+                    )
+                )
+
+                logger.info(
+                    (
+                        "PUBLIC PERSON SEARCH "
+                        "email=%s status=%s phone=%s"
+                    ),
+                    email,
+                    public_result.status,
+                    public_result.phone,
+                )
+
+                await asyncio.to_thread(
+                    update_contact,
+                    str(contact["id"]),
+                    _payload(
+                        public_result,
+                        None,
+                        attempts,
+                    ),
+                )
+
+                if public_result.status == "MATCHED":
+                    matched_count += 1
+                elif public_result.status == "NOT_FOUND":
+                    not_found_count += 1
+                else:
+                    failed_count += 1
+
+            if matched_count > 0:
+                job_status = "MATCHED"
+                last_error = None
+                next_retry_at = None
+            elif failed_count > 0:
+                job_status = "FAILED"
+                last_error = (
+                    "One or more public mailbox "
+                    "person searches failed."
+                )
+                next_retry_at = retry_at_iso(
+                    job.attempts
+                )
+            else:
+                job_status = "NOT_FOUND"
+                last_error = None
+                next_retry_at = None
+
+            update_job(
+                job.id,
+                {
+                    "status": job_status,
+                    "finished_at": utc_now_iso(),
+                    "worker_id": None,
+                    "last_error": last_error,
+                    "next_retry_at": next_retry_at,
+                },
+            )
+
+            logger.info(
+                (
+                    "domain=%s public_mailbox=true "
+                    "contacts=%s matched=%s "
+                    "not_found=%s failed=%s"
+                ),
+                domain,
+                len(contacts),
+                matched_count,
+                not_found_count,
+                failed_count,
+            )
+            return
+
+        website, pages = await crawl_company_website(
+            domain,
+            max_pages=MAX_PAGES,
+        )
+
+        company_result = find_phone_from_pages(
+            domain=domain,
+            website=website,
+            pages=pages,
+            started_at=started_at,
+        )
+
+        company_id = await asyncio.to_thread(
+            save_company_result,
+            domain,
+            company_result,
+        )
+
         person_matches = 0
+
         for contact in contacts:
             email = str(contact.get("email") or "")
-            person = find_person_phone_in_pages(email, pages, domain)
+            person = find_person_phone_in_pages(
+                email,
+                pages,
+                domain,
+            )
+
+            logger.info(
+                (
+                    "PERSON MATCH email=%s "
+                    "matched=%s phone=%s "
+                    "score=%s evidence=%s"
+                ),
+                email,
+                person.matched,
+                person.phone,
+                person.score,
+                person.evidence,
+            )
+
             if person.matched and person.phone:
                 person_matches += 1
                 chosen = FinderResult(
-                    status="MATCHED", website=website, phone=person.phone,
-                    confidence=person.confidence, source_url=person.source_url,
+                    status="MATCHED",
+                    website=website,
+                    phone=person.phone,
+                    confidence=person.confidence,
+                    source_url=person.source_url,
                     pages_scanned=len(pages),
-                    scan_duration_ms=int((time.perf_counter()-started_at)*1000),
-                    candidates=[{"phone": person.phone, "score": person.score, "source": "person_block", "source_url": person.source_url, "evidence": list(person.evidence), "person_name": person.person_name}],
+                    scan_duration_ms=int(
+                        (
+                            time.perf_counter()
+                            - started_at
+                        )
+                        * 1000
+                    ),
+                    candidates=[
+                        {
+                            "phone": person.phone,
+                            "score": person.score,
+                            "source": "person_block",
+                            "source_url": (
+                                person.source_url
+                            ),
+                            "evidence": list(
+                                person.evidence
+                            ),
+                            "person_name": (
+                                person.person_name
+                            ),
+                        }
+                    ],
                     error=None,
-                    confidence_label="VERY_HIGH" if (person.confidence or 0) >= 90 else "HIGH" if (person.confidence or 0) >= 75 else "MEDIUM" if (person.confidence or 0) >= 50 else "LOW",
+                    confidence_label=(
+                        "VERY_HIGH"
+                        if (
+                            person.confidence or 0
+                        ) >= 90
+                        else "HIGH"
+                        if (
+                            person.confidence or 0
+                        ) >= 75
+                        else "MEDIUM"
+                        if (
+                            person.confidence or 0
+                        ) >= 50
+                        else "LOW"
+                    ),
                 )
             else:
                 chosen = company_result
+
             await asyncio.to_thread(
-                update_contact, str(contact["id"]),
-                _payload(chosen, company_id, int(contact.get("scan_attempts") or 0)+1),
+                update_contact,
+                str(contact["id"]),
+                _payload(
+                    chosen,
+                    company_id,
+                    int(
+                        contact.get(
+                            "scan_attempts"
+                        )
+                        or 0
+                    )
+                    + 1,
+                ),
             )
-        job_status = company_result.status if company_result.status in {"MATCHED", "NOT_FOUND"} else "FAILED"
-        update_job(job.id, {"status": job_status, "finished_at": utc_now_iso(), "worker_id": None, "last_error": company_result.error, "next_retry_at": None if job_status != "FAILED" else retry_at_iso(job.attempts)})
-        logger.info("domain=%s company_status=%s contacts=%s person_matches=%s", domain, company_result.status, len(contacts), person_matches)
+
+        job_status = (
+            company_result.status
+            if company_result.status
+            in {"MATCHED", "NOT_FOUND"}
+            else "FAILED"
+        )
+
+        update_job(
+            job.id,
+            {
+                "status": job_status,
+                "finished_at": utc_now_iso(),
+                "worker_id": None,
+                "last_error": company_result.error,
+                "next_retry_at": (
+                    None
+                    if job_status != "FAILED"
+                    else retry_at_iso(
+                        job.attempts
+                    )
+                ),
+            },
+        )
+
+        logger.info(
+            (
+                "domain=%s company_status=%s "
+                "contacts=%s person_matches=%s"
+            ),
+            domain,
+            company_result.status,
+            len(contacts),
+            person_matches,
+        )
+
     except Exception as exc:
-        terminal_failure = job.attempts >= MAX_RETRIES
-        update_job(job.id, {"status": "FAILED", "finished_at": utc_now_iso(), "worker_id": None, "last_error": f"{type(exc).__name__}: {exc}", "next_retry_at": None if terminal_failure else retry_at_iso(job.attempts)})
-        logger.exception("Domain job failed: %s", domain)
+        terminal_failure = (
+            job.attempts >= MAX_RETRIES
+        )
+
+        update_job(
+            job.id,
+            {
+                "status": "FAILED",
+                "finished_at": utc_now_iso(),
+                "worker_id": None,
+                "last_error": (
+                    f"{type(exc).__name__}: {exc}"
+                ),
+                "next_retry_at": (
+                    None
+                    if terminal_failure
+                    else retry_at_iso(
+                        job.attempts
+                    )
+                ),
+            },
+        )
+
+        logger.exception(
+            "Domain job failed: %s",
+            domain,
+        )
 
 
 async def worker_loop() -> None:
