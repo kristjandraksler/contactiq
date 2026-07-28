@@ -30,6 +30,18 @@ type Lead = {
   status: string;
   created_at: string;
   updated_at: string;
+  country_code?: string | null;
+  country_name?: string | null;
+  country_flag?: string | null;
+  country_confidence?: number | null;
+  country_source?: string | null;
+};
+
+type CountryOption = {
+  code: string;
+  name: string | null;
+  flag: string | null;
+  count: number;
 };
 
 type Pagination = {
@@ -49,6 +61,7 @@ type LeadsResponse = {
     has_phone: boolean | null;
     confidence_min: number | null;
     status: string | null;
+    country?: string | null;
   };
 };
 
@@ -140,6 +153,10 @@ export default function PhonesPage() {
   const [confidenceMin, setConfidenceMin] =
     useState("");
 
+  const [country, setCountry] = useState("");
+  const [countries, setCountries] =
+    useState<CountryOption[]>([]);
+
   const [loading, setLoading] = useState(true);
 
   const [error, setError] = useState<string | null>(
@@ -163,6 +180,10 @@ export default function PhonesPage() {
 
       if (confidenceMin) {
         params.set("confidence_min", confidenceMin);
+      }
+
+      if (country) {
+        params.set("country", country);
       }
 
       const response = await fetch(
@@ -197,6 +218,7 @@ export default function PhonesPage() {
   }, [
     activeSearch,
     confidenceMin,
+    country,
     page,
     pageSize,
   ]);
@@ -204,6 +226,31 @@ export default function PhonesPage() {
   useEffect(() => {
     void loadPhones();
   }, [loadPhones]);
+
+  useEffect(() => {
+    async function loadCountries() {
+      try {
+        const response = await fetch(
+          `${API_URL}/contacts/countries`,
+          { cache: "no-store" },
+        );
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = (await response.json()) as {
+          items: CountryOption[];
+        };
+
+        setCountries(data.items);
+      } catch {
+        setCountries([]);
+      }
+    }
+
+    void loadCountries();
+  }, []);
 
   function handleSearch(
     event: FormEvent<HTMLFormElement>,
@@ -217,6 +264,7 @@ export default function PhonesPage() {
     setSearchInput("");
     setActiveSearch("");
     setConfidenceMin("");
+    setCountry("");
     setPage(1);
   }
 
@@ -224,6 +272,13 @@ export default function PhonesPage() {
     event: ChangeEvent<HTMLSelectElement>,
   ) {
     setConfidenceMin(event.target.value);
+    setPage(1);
+  }
+
+  function handleCountryChange(
+    event: ChangeEvent<HTMLSelectElement>,
+  ) {
+    setCountry(event.target.value);
     setPage(1);
   }
 
@@ -245,6 +300,10 @@ export default function PhonesPage() {
 
     if (confidenceMin) {
       params.set("confidence_min", confidenceMin);
+    }
+
+    if (country) {
+      params.set("country", country);
     }
 
     window.location.href =
@@ -361,11 +420,31 @@ export default function PhonesPage() {
               <option value="90">90% ali več</option>
             </select>
 
+            <select
+              value={country}
+              onChange={handleCountryChange}
+              aria-label="Filtriraj po državi"
+            >
+              <option value="">Vse države</option>
+
+              {countries.map((item) => (
+                <option
+                  key={item.code}
+                  value={item.code}
+                >
+                  {item.flag ?? "🌍"}{" "}
+                  {item.name ?? item.code} ({item.count})
+                </option>
+              ))}
+            </select>
+
             <button type="submit" disabled={loading}>
               Išči
             </button>
 
-            {(activeSearch || confidenceMin) && (
+            {(activeSearch ||
+              confidenceMin ||
+              country) && (
               <button
                 type="button"
                 className="ghostButton"
@@ -411,7 +490,9 @@ export default function PhonesPage() {
               telefonov.
             </p>
 
-            {(activeSearch || confidenceMin) && (
+            {(activeSearch ||
+              confidenceMin ||
+              country) && (
               <button
                 type="button"
                 className="secondaryButton"
@@ -430,6 +511,7 @@ export default function PhonesPage() {
                     <th>Telefon</th>
                     <th>E-mail</th>
                     <th>Domena</th>
+                    <th>Država</th>
                     <th>Confidence</th>
                     <th>Status</th>
                     <th>Vir</th>
@@ -472,6 +554,29 @@ export default function PhonesPage() {
                           </a>
                         ) : (
                           lead.domain
+                        )}
+                      </td>
+
+                      <td>
+                        {lead.country_code ? (
+                          <span
+                            title={
+                              lead.country_source
+                                ? `Vir: ${lead.country_source}${
+                                    lead.country_confidence !== null &&
+                                    lead.country_confidence !== undefined
+                                      ? ` · ${lead.country_confidence}%`
+                                      : ""
+                                  }`
+                                : undefined
+                            }
+                          >
+                            {lead.country_flag ?? "🌍"}{" "}
+                            {lead.country_name ??
+                              lead.country_code}
+                          </span>
+                        ) : (
+                          "—"
                         )}
                       </td>
 
