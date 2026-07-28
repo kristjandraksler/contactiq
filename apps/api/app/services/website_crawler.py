@@ -14,8 +14,19 @@ CONTACT_KEYWORDS = (
     "impressum", "imprint", "team", "podjetje", "company", "support", "podpora",
 )
 PRIORITY_PATHS = (
-    "/kontakt", "/kontakt/", "/contact", "/contact/", "/contacts", "/about",
-    "/about-us", "/o-nas", "/o-podjetju", "/impressum", "/imprint",
+    "/podjetje/kontakti",
+    "/podjetje/kontakti/",
+    "/kontakt",
+    "/kontakt/",
+    "/contact",
+    "/contact/",
+    "/contacts",
+    "/about",
+    "/about-us",
+    "/o-nas",
+    "/o-podjetju",
+    "/impressum",
+    "/imprint",
 )
 IGNORED_EXTENSIONS = (
     ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".pdf", ".doc",
@@ -152,16 +163,25 @@ async def crawl_company_website(domain: str, max_pages: int = 10) -> tuple[str |
         visited: set[str] = set()
         cache = {website: homepage}
 
+        # Crawl real contact links discovered on the homepage before
+        # guessed generic paths. Otherwise max_pages can be exhausted
+        # before URLs such as /podjetje/kontakti are reached.
+        discovered_links = extract_contact_links(
+            homepage.html,
+            website,
+            website,
+        )
+
+        for link in discovered_links:
+            if link not in queued:
+                queue.append(link)
+                queued.add(link)
+
         for path in PRIORITY_PATHS:
             url = _canonical_url(urljoin(website, path))
             if url not in queued:
                 queue.append(url)
                 queued.add(url)
-
-        for link in extract_contact_links(homepage.html, website, website):
-            if link not in queued:
-                queue.append(link)
-                queued.add(link)
 
         pages: list[CrawledPage] = []
         while queue and len(pages) < max_pages:
