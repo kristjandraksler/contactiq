@@ -54,6 +54,7 @@ type Candidate = {
   evidence_strength?: number;
   strengths?: string[] | null;
   warnings?: string[] | null;
+  person_name?: string | null;
 };
 
 type EnrichmentResult = {
@@ -69,6 +70,8 @@ type EnrichmentResult = {
   confidence_label?: string;
   cached?: boolean;
   force_refresh?: boolean;
+  match_type?: "person" | "company" | "none";
+  person_name?: string | null;
 };
 
 type SearchStep = {
@@ -108,12 +111,19 @@ function sourceLabel(source: string): string {
     tel_link: "Telefonska povezava",
     schema_org: "Strukturirani podatki",
     microdata: "Meta podatki",
+    person_block: "Osebni kontakt",
   };
 
   return labels[source] ?? source.replaceAll("_", " ");
 }
 
 function evidenceLabel(value: string): string {
+  if (value === "exact_email") return "Točen e-mail osebe";
+  if (value === "phone_near_email") return "Telefon neposredno ob e-mailu";
+  if (value === "full_name") return "Ujemanje imena in priimka";
+  if (value === "phone_near_name") return "Telefon neposredno ob imenu";
+  if (value.startsWith("direction:")) return "Kontakt v istem vsebinskem bloku";
+  if (value.startsWith("distance:")) return "Zelo bližnja povezava podatkov";
   if (value.startsWith("positive_context:")) {
     return `Blizu oznake »${value.split(":")[1]}«`;
   }
@@ -238,10 +248,13 @@ export default function Home() {
       setSteps(initialSteps);
 
       const animation = animateSearchSteps();
-      const response = await fetch(
-        `${API_URL}/enrichment/test?domain=${encodeURIComponent(trimmedQuery)}&force_refresh=true`,
-        { cache: "no-store" },
-      );
+      const lookupUrl = trimmedQuery.includes("@")
+        ? `${API_URL}/enrichment/person-test?email=${encodeURIComponent(trimmedQuery)}&force_refresh=true`
+        : `${API_URL}/enrichment/test?domain=${encodeURIComponent(trimmedQuery)}&force_refresh=true`;
+
+      const response = await fetch(lookupUrl, {
+        cache: "no-store",
+      });
 
       const data = (await response.json()) as EnrichmentResult;
       await animation;
@@ -420,7 +433,12 @@ export default function Home() {
             <div className="resultTopline">
               <div>
                 <span className={`resultStatus ${result.status.toLowerCase()}`}>
-                  <span /> {result.status === "MATCHED" ? "Kontakt najden" : result.status}
+                  <span />{" "}
+                  {result.status === "MATCHED"
+                    ? result.match_type === "person"
+                      ? "Osebni kontakt najden"
+                      : "Kontakt podjetja najden"
+                    : result.status}
                 </span>
                 <h2>{domainName}</h2>
                 <a href={result.website ?? "#"} target="_blank" rel="noreferrer">
@@ -439,7 +457,11 @@ export default function Home() {
             </div>
 
             <div className="phoneHeroValue">
-              <span>Najboljši zadetek</span>
+              <span>
+                {result.match_type === "person"
+                  ? `Osebni kontakt${result.person_name ? ` · ${result.person_name}` : ""}`
+                  : "Najboljši zadetek"}
+              </span>
               <strong>{formatPhone(result.phone)}</strong>
               {result.phone && (
                 <button
@@ -523,7 +545,11 @@ export default function Home() {
                 key={`${candidate.phone}-${index}`}
               >
                 <div className="candidateHeader">
-                  <span>{index === 0 ? "Najboljši zadetek" : `Alternativa ${index}`}</span>
+                  <span>{index === 0
+                    ? candidate.source === "person_block"
+                      ? "Osebni kontakt"
+                      : "Najboljši zadetek"
+                    : `Alternativa ${index}`}</span>
                   <strong>Score {candidate.score}</strong>
                 </div>
                 <h3>{formatPhone(candidate.phone)}</h3>
