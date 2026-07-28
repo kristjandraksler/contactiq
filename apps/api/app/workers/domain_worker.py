@@ -137,12 +137,18 @@ def seed_jobs() -> int:
     return 0
 
 
-def requeue_stale_jobs() -> int:
+def requeue_stale_jobs(
+    stale_minutes: int | None = None,
+) -> int:
     supabase = get_supabase()
     response = supabase.rpc(
         "requeue_stale_domain_jobs",
         {
-            "p_stale_minutes": STALE_JOB_MINUTES,
+            "p_stale_minutes": (
+                max(5, int(stale_minutes))
+                if stale_minutes is not None
+                else STALE_JOB_MINUTES
+            ),
         },
     ).execute()
 

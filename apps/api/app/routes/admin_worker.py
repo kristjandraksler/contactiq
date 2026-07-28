@@ -6,7 +6,12 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 
 from app.database import get_supabase
-from app.workers.domain_worker import claim_jobs, process_job, seed_jobs
+from app.workers.domain_worker import (
+    claim_jobs,
+    process_job,
+    requeue_stale_jobs,
+    seed_jobs,
+)
 
 
 router = APIRouter(
@@ -188,6 +193,40 @@ def resume_worker() -> dict[str, Any]:
         raise HTTPException(
             status_code=500,
             detail=f"Workerja ni bilo mogoče nadaljevati: {exc}",
+        ) from exc
+
+
+@router.post("/requeue-stale")
+def requeue_stale_worker_jobs(
+    stale_minutes: int = Query(
+        default=10,
+        ge=5,
+        le=240,
+        description=(
+            "PROCESSING opravila, starejša od tega "
+            "števila minut, vrne v PENDING."
+        ),
+    ),
+) -> dict[str, Any]:
+    try:
+        requeued = requeue_stale_jobs(
+            stale_minutes=stale_minutes,
+        )
+
+        return {
+            "status": "ok",
+            "stale_minutes": stale_minutes,
+            "requeued": requeued,
+            "worker_status": _read_status(),
+        }
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Zataknjenih opravil ni bilo mogoče "
+                f"vrniti v čakalno vrsto: {exc}"
+            ),
         ) from exc
 
 
