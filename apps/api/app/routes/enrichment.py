@@ -13,13 +13,18 @@ from app.services.company_cache import (
     save_company_result,
 )
 from app.services.person_matcher import find_person_phone_in_pages
+from app.services.person_search import search_public_mailbox_person
 from app.services.phone_finder import (
     FinderResult,
     find_phone_for_domain,
     find_phone_from_pages,
 )
 from app.services.website_crawler import crawl_company_website
-from app.services.providers import clean_domain
+from app.services.providers import (
+    clean_domain,
+    extract_person_hint_from_email,
+    is_public_email_domain,
+)
 
 
 router = APIRouter(
@@ -380,6 +385,32 @@ async def test_person_enrichment(
         normalized_email
     )
     started_at = time.perf_counter()
+
+    if is_public_email_domain(
+        normalized_domain
+    ):
+        hint = extract_person_hint_from_email(
+            normalized_email
+        )
+
+        public_result = (
+            await search_public_mailbox_person(
+                normalized_email
+            )
+        )
+
+        return {
+            **public_result.to_dict(),
+            "cached": False,
+            "force_refresh": force_refresh,
+            "match_type": (
+                "public_person"
+                if public_result.status == "MATCHED"
+                else "none"
+            ),
+            "person_name": hint.full_name,
+            "public_mailbox": True,
+        }
 
     try:
         website, pages = await crawl_company_website(
