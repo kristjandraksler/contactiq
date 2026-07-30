@@ -137,18 +137,12 @@ def seed_jobs() -> int:
     return 0
 
 
-def requeue_stale_jobs(
-    stale_minutes: int | None = None,
-) -> int:
+def requeue_stale_jobs() -> int:
     supabase = get_supabase()
     response = supabase.rpc(
         "requeue_stale_domain_jobs",
         {
-            "p_stale_minutes": (
-                max(5, int(stale_minutes))
-                if stale_minutes is not None
-                else STALE_JOB_MINUTES
-            ),
+            "p_stale_minutes": STALE_JOB_MINUTES,
         },
     ).execute()
 
@@ -255,107 +249,65 @@ async def process_job(job: DomainJob) -> None:
             domain,
         )
 
-        # Public mailbox / ISP domains must never be crawled as companies.
-        # Each e-mail is searched as a person. If no reliable public match
-        # exists, the contact is saved as NOT_FOUND.
+        # Public mailbox / ISP domains are not company websites.
+        # They are classified immediately and never crawled or searched.
         if is_public_email_domain(domain):
-            matched_count = 0
-            not_found_count = 0
-            failed_count = 0
-
             for contact in contacts:
-                email = str(contact.get("email") or "")
                 attempts = (
                     int(contact.get("scan_attempts") or 0)
                     + 1
                 )
 
-                public_result = (
-                    await search_public_mailbox_person(
-                        email
-                    )
-                )
-
-                logger.info(
-                    (
-                        "PUBLIC PERSON SEARCH "
-                        "email=%s status=%s phone=%s"
-                    ),
-                    email,
-                    public_result.status,
-                    public_result.phone,
-                )
-
-                public_country = detect_country(
-                    phone=public_result.phone,
-                    website_or_domain=None,
-                    pages=None,
-                    allow_tld=False,
-                )
-
                 await asyncio.to_thread(
                     update_contact,
                     str(contact["id"]),
-                    _payload(
-                        public_result,
-                        None,
-                        attempts,
-                        public_country,
-                        (
-                            "public_person"
-                            if public_result.status == "MATCHED"
-                            else "none"
+                    {
+                        "website": None,
+                        "phone": None,
+                        "confidence": None,
+                        "source_url": None,
+                        "pages_scanned": 0,
+                        "scan_attempts": attempts,
+                        "scan_duration_ms": int(
+                            (
+                                time.perf_counter()
+                                - started_at
+                            )
+                            * 1000
                         ),
-                    ),
+                        "last_scan": utc_now_iso(),
+                        "status": "PUBLIC_EMAIL",
+                        "last_error": None,
+                        "country_code": None,
+                        "country_name": None,
+                        "country_flag": None,
+                        "country_confidence": 0,
+                        "country_source": "unknown",
+                        "language_code": None,
+                        "timezone_name": None,
+                        "person_match_type": "public_email",
+                        "company_id": None,
+                    },
                 )
-
-                if public_result.status == "MATCHED":
-                    matched_count += 1
-                elif public_result.status == "NOT_FOUND":
-                    not_found_count += 1
-                else:
-                    failed_count += 1
-
-            if matched_count > 0:
-                job_status = "MATCHED"
-                last_error = None
-                next_retry_at = None
-            elif failed_count > 0:
-                job_status = "FAILED"
-                last_error = (
-                    "One or more public mailbox "
-                    "person searches failed."
-                )
-                next_retry_at = retry_at_iso(
-                    job.attempts
-                )
-            else:
-                job_status = "NOT_FOUND"
-                last_error = None
-                next_retry_at = None
 
             update_job(
                 job.id,
                 {
-                    "status": job_status,
+                    "status": "NOT_FOUND",
                     "finished_at": utc_now_iso(),
                     "worker_id": None,
-                    "last_error": last_error,
-                    "next_retry_at": next_retry_at,
+                    "last_error": (
+                        "Public mailbox provider; "
+                        "excluded from company enrichment."
+                    ),
+                    "next_retry_at": None,
                 },
             )
 
             logger.info(
-                (
-                    "domain=%s public_mailbox=true "
-                    "contacts=%s matched=%s "
-                    "not_found=%s failed=%s"
-                ),
+                "domain=%s public_mailbox=true contacts=%s classified=PUBLIC_EMAIL",
                 domain,
                 len(contacts),
-                matched_count,
-                not_found_count,
-                failed_count,
             )
             return
 

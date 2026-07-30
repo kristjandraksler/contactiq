@@ -18,6 +18,7 @@ ALLOWED_STATUSES = {
     "PARTIAL_MATCH",
     "NOT_FOUND",
     "FAILED",
+    "PUBLIC_EMAIL",
 }
 
 
@@ -36,7 +37,7 @@ def normalize_status(status: str | None) -> str | None:
             status_code=400,
             detail=(
                 "Neveljaven status. Dovoljeni statusi so: "
-                "NEW, MATCHED, PARTIAL_MATCH, NOT_FOUND, FAILED."
+                "NEW, MATCHED, PARTIAL_MATCH, NOT_FOUND, FAILED, PUBLIC_EMAIL."
             ),
         )
 
@@ -86,12 +87,8 @@ def list_leads(
         default=None,
         description=(
             "Filter po statusu: NEW, MATCHED, PARTIAL_MATCH, "
-            "NOT_FOUND ali FAILED."
+            "NOT_FOUND, FAILED ali PUBLIC_EMAIL."
         ),
-    ),
-    country: str | None = Query(
-        default=None,
-        description="ISO country code (SI, HR, DE...)",
     ),
 ) -> dict[str, object]:
     try:
@@ -111,9 +108,6 @@ def list_leads(
                     "website,"
                     "phone,"
                     "confidence,"
-                    "country_code,"
-                    "country_name,"
-                    "country_flag,"
                     "source_url,"
                     "pages_scanned,"
                     "scan_attempts,"
@@ -121,12 +115,7 @@ def list_leads(
                     "last_scan,"
                     "status,"
                     "created_at,"
-                    "updated_at,"
-                    "country_code,"
-                    "country_name,"
-                    "country_flag,"
-                    "country_confidence,"
-                    "country_source"
+                    "updated_at"
                 ),
                 count="exact",
             )
@@ -154,12 +143,6 @@ def list_leads(
             query = query.gte(
                 "confidence",
                 confidence_min,
-            )
-
-        if country:
-            query = query.eq(
-                "country_code",
-                country.upper(),
             )
 
         if search and search.strip():
@@ -211,7 +194,6 @@ def list_leads(
                 "has_phone": has_phone,
                 "confidence_min": confidence_min,
                 "status": normalized_status,
-                "country": country,
             },
         }
 
@@ -248,7 +230,6 @@ def export_leads_csv(
         default=None,
         description="Filter po statusu.",
     ),
-    country: str | None = Query(default=None),
 ):
     try:
         supabase = get_supabase()
@@ -263,9 +244,6 @@ def export_leads_csv(
                     "website,"
                     "phone,"
                     "confidence,"
-                    "country_code,"
-                    "country_name,"
-                    "country_flag,"
                     "source_url,"
                     "status,"
                     "last_scan,"
@@ -298,12 +276,6 @@ def export_leads_csv(
                 confidence_min,
             )
 
-        if country:
-            query = query.eq(
-                "country_code",
-                country.upper(),
-            )
-
         if search and search.strip():
             safe_search = sanitize_search(search)
 
@@ -334,7 +306,6 @@ def export_leads_csv(
             [
                 "Telefon",
                 "E-mail",
-                "Država",
                 "Domena",
                 "Spletna stran",
                 "Confidence",
@@ -349,7 +320,6 @@ def export_leads_csv(
                 [
                     lead.get("phone") or "",
                     lead.get("email") or "",
-                    lead.get("country_name") or "",
                     lead.get("domain") or "",
                     lead.get("website") or "",
                     (
