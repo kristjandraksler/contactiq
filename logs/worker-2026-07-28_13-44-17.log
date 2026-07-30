@@ -1,0 +1,53 @@
+﻿2026-07-28 13:44:17 ContactIQ Worker v2 started.
+2026-07-28 13:44:17 BaseUrl=https://contactiq-5w9n.onrender.com BatchSize=10 StallMinutes=10 Log=C:\Users\draks\OneDrive\Documents\contactiq-starter\contactiq\logs\worker-2026-07-28_13-44-17.log
+2026-07-28 13:44:18 Progress: 34.36% | Processed: 381/1109 | Pending: 722 | Processing: 6 | Matched: 144 | Not found: 237 | Failed: 0 | Speed: 16400.17/min | ETA: 00:02
+2026-07-28 13:47:28 Claimed: 10 | Processed: 10 | Domains: hotmail.es, hotmail.fr, hotmail.gr, hotmail.hu, hotmail.it, hotmail.se, hotmail.sk, hpelektro.sk, hproyal.cz, hrwohndesign.at
+2026-07-28 13:47:32 Progress: 35.26% | Processed: 391/1109 | Pending: 712 | Processing: 6 | Matched: 145 | Not found: 246 | Failed: 0 | Speed: 120.09/min | ETA: 05:55
+2026-07-28 13:54:33 Claimed: 10 | Processed: 10 | Domains: hugania.sk, hush.com, hussborg.com, hypercut.si, ianfenton.co.uk, icbg.pt, icloud.com, icon.si, ideogramma.org, igm-profi.cz
+2026-07-28 13:54:37 Progress: 36.16% | Processed: 401/1109 | Pending: 702 | Processing: 6 | Matched: 147 | Not found: 254 | Failed: 0 | Speed: 38.81/min | ETA: 18:05
+2026-07-28 13:56:30 Claimed: 10 | Processed: 10 | Domains: iipsecurity.com, ik.me, ikam.pl, ilg-neuenbuerg.de, imagmernok.hu, imcrema.it, inbox.eu, inbox.lt, inbox.lv, inbox.ru
+2026-07-28 13:56:34 Progress: 37.06% | Processed: 411/1109 | Pending: 692 | Processing: 6 | Matched: 151 | Not found: 260 | Failed: 0 | Speed: 33.47/min | ETA: 20:40
+2026-07-28 13:57:26 Claimed: 10 | Processed: 10 | Domains: indamail.hu, index.hu, indigo-dienstleistungen.de, industrial-automation.cz, inet.hr, inf99.de, infigo.hr, informaticalosllanos.com, infotax.gr, infrabel.be
+2026-07-28 13:57:30 Progress: 37.96% | Processed: 421/1109 | Pending: 682 | Processing: 6 | Matched: 157 | Not found: 264 | Failed: 0 | Speed: 31.84/min | ETA: 21:24
+2026-07-28 13:58:53 Request failed: The remote server returned an error: (502) Bad Gateway.
+2026-07-28 13:58:53 Retry cez 10 sekund. Consecutive errors: 1
+2026-07-28 13:59:03 Request failed: The request was aborted: The connection was closed unexpectedly.
+2026-07-28 13:59:03 Retry cez 20 sekund. Consecutive errors: 2
+2026-07-28 13:59:24 Progress: 38.68% | Processed: 429/1109 | Pending: 672 | Processing: 8 | Matched: 161 | Not found: 268 | Failed: 0 | Speed: 28.36/min | ETA: 23:41
+2026-07-28 14:00:29 Claimed: 10 | Processed: 10 | Domains: intexdk.eu, invitel.hu, inwind.it, irb.hr, isj-group.biz, ismedicare.com, isotel.org, ispem.com, itpg-varna.bg, izdebski.me
+2026-07-28 14:00:33 Progress: 39.59% | Processed: 439/1109 | Pending: 662 | Processing: 8 | Matched: 166 | Not found: 273 | Failed: 0 | Speed: 26.99/min | ETA: 24:31
+2026-07-28 14:01:37 Claimed: 10 | Processed: 10 | Domains: jamel-fashion.com, janisch-schulz.com, janpinka.sk, janteplan.com, jatop.info, javierortuno.es, jayer.de, jbo.de, jdgroup.sk, jens-salmon.de
+2026-07-28 14:01:41 Progress: 40.49% | Processed: 449/1109 | Pending: 652 | Processing: 8 | Matched: 174 | Not found: 275 | Failed: 0 | Speed: 25.8/min | ETA: 25:16
+2026-07-28 14:02:14 Claimed: 10 | Processed: 10 | Domains: jesse.ee, jezsu.hu, jirihos.cz, jkdisbet.cz, jnbc.gr, jobstation.ch, josipdol.si, jottojott.de, journalmedica.com, jsfamily.sk
+2026-07-28 14:02:18 Progress: 41.39% | Processed: 459/1109 | Pending: 642 | Processing: 8 | Matched: 177 | Not found: 282 | Failed: 0 | Speed: 25.48/min | ETA: 25:12
+2026-07-28 14:03:52 Claimed: 10 | Processed: 10 | Domains: jungent.ee, ka.ht.hr, kabakoo.co, kabelbw.de, kabelmail.de, kabelnet.net, kacjan.com, kalives-apartments.gr, kallur.ee, kalman.eu
+2026-07-28 14:03:56 Progress: 42.29% | Processed: 469/1109 | Pending: 632 | Processing: 8 | Matched: 179 | Not found: 290 | Failed: 0 | Speed: 23.87/min | ETA: 26:28
+2026-07-28 14:04:33 Claimed: 10 | Processed: 10 | Domains: kamniktrans.si, karanovicpartners.com, karastefanou.gr, kasapoglou.com, kastankovosusenemaso.cz, kate.si, katonaborhaz.hu, kay-schwarz.com, kc-direct.si, kcconstruct.sk
+2026-07-28 14:04:37 Progress: 43.19% | Processed: 479/1109 | Pending: 622 | Processing: 8 | Matched: 184 | Not found: 295 | Failed: 0 | Speed: 23.55/min | ETA: 26:24
+2026-07-28 14:05:43 Claimed: 10 | Processed: 10 | Domains: kemmerling.ee, kierkgaard.com, kingstone.hu, kiwifinance.ro, kiwiuk.net, kkb.si, klausgutjahr.de, klempirstvihh.cz, klieschdesign.de, kliksi.com
+2026-07-28 14:05:46 Progress: 44.09% | Processed: 489/1109 | Pending: 612 | Processing: 8 | Matched: 188 | Not found: 301 | Failed: 0 | Speed: 22.75/min | ETA: 26:54
+2026-07-28 14:06:39 Claimed: 10 | Processed: 10 | Domains: klmn.si, kobal.xyz, kogovsek.si, koifer.sk, kolumbus.fi, konda.si, konex-center.si, konvikt.si, konyvelesidij.hu, koplas.si
+2026-07-28 14:06:42 Progress: 45.0% | Processed: 499/1109 | Pending: 602 | Processing: 8 | Matched: 192 | Not found: 307 | Failed: 0 | Speed: 22.25/min | ETA: 27:03
+2026-07-28 14:07:41 Claimed: 10 | Processed: 10 | Domains: kordilis.gr, koscielski.de, kosh.ch, kostriba.cz, kotal-trade.si, kovacs.trade, kpartner.ee, kramar.us, kras.co.ba, krone-igelsberg.de
+2026-07-28 14:07:44 Progress: 45.9% | Processed: 509/1109 | Pending: 592 | Processing: 8 | Matched: 196 | Not found: 313 | Failed: 0 | Speed: 21.7/min | ETA: 27:17
+2026-07-28 14:08:52 Claimed: 10 | Processed: 10 | Domains: kropp.pro, krs.net, krtki.si, ksnn.eu, ktu.lt, kuchar.cz, kuehnle.info, kuhn-zelte.ch, kursy-walut.info.pl, kvtehitus.ee
+2026-07-28 14:08:56 Progress: 46.8% | Processed: 519/1109 | Pending: 582 | Processing: 8 | Matched: 201 | Not found: 318 | Failed: 0 | Speed: 21.06/min | ETA: 27:38
+2026-07-28 14:09:34 Claimed: 10 | Processed: 10 | Domains: ladronka.com, laposte.net, larsullrich.de, launchub.com, laura-living.com, lavrih.com, lazaridis.gr, leanconsult.es, lehocena.com, leigoterpuit.ee
+2026-07-28 14:09:38 Progress: 47.7% | Processed: 529/1109 | Pending: 572 | Processing: 8 | Matched: 204 | Not found: 325 | Failed: 0 | Speed: 20.87/min | ETA: 27:24
+2026-07-28 14:12:13 Claimed: 10 | Processed: 10 | Domains: lekoma.cz, leonadis.de, leonardo.hr, lescienze.it, letcom.eu, letko.net, levona.hr, lgt-web.de, libelaorodja.si, libero.it
+2026-07-28 14:12:17 Progress: 48.6% | Processed: 539/1109 | Pending: 562 | Processing: 8 | Matched: 211 | Not found: 328 | Failed: 0 | Speed: 19.25/min | ETA: 29:11
+2026-07-28 14:13:06 Claimed: 10 | Processed: 10 | Domains: libertas.si, libreria-odos.it, liepu.lv, limessoft.com, lindr.org, linuxmail.org, liprandi.it, list.ru, live.at, live.be
+2026-07-28 14:13:10 Progress: 49.5% | Processed: 549/1109 | Pending: 552 | Processing: 8 | Matched: 215 | Not found: 334 | Failed: 0 | Speed: 19.01/min | ETA: 29:02
+2026-07-28 14:15:18 Claimed: 10 | Processed: 10 | Domains: live.co.uk, live.com, live.com.au, live.com.pt, live.de, live.dk, live.fr, live.ie, live.it, live.nl
+2026-07-28 14:15:21 Progress: 50.41% | Processed: 559/1109 | Pending: 542 | Processing: 8 | Matched: 215 | Not found: 344 | Failed: 0 | Speed: 17.99/min | ETA: 30:07
+2026-07-28 14:16:11 Claimed: 10 | Processed: 10 | Domains: live.no, live.se, livsstil.pl, liwest.at, lomm.si, lowoxygen.de, lst-gmbh.de, lucavitale.it, luks-kr.si, luna.hu
+2026-07-28 14:16:15 Progress: 51.31% | Processed: 569/1109 | Pending: 532 | Processing: 8 | Matched: 221 | Not found: 348 | Failed: 0 | Speed: 17.8/min | ETA: 29:53
+2026-07-28 14:17:18 Claimed: 10 | Processed: 10 | Domains: lunara.eu, lutrija.hr, luxology.eu, lysek.biz, mac.com, macconsulting.de, madnet.sk, magst.info, mahecron.com, mail.bg
+2026-07-28 14:17:22 Progress: 52.21% | Processed: 579/1109 | Pending: 522 | Processing: 8 | Matched: 223 | Not found: 356 | Failed: 0 | Speed: 17.5/min | ETA: 29:49
+2026-07-28 14:19:53 Request failed: The remote server returned an error: (502) Bad Gateway.
+2026-07-28 14:19:53 Retry cez 10 sekund. Consecutive errors: 1
+2026-07-28 14:20:03 Request failed: The request was aborted: The connection was closed unexpectedly.
+2026-07-28 14:20:03 Retry cez 20 sekund. Consecutive errors: 2
+2026-07-28 14:20:30 Progress: 52.75% | Processed: 585/1109 | Pending: 512 | Processing: 12 | Matched: 225 | Not found: 360 | Failed: 0 | Speed: 16.15/min | ETA: 31:41
+2026-07-28 14:21:22 Claimed: 10 | Processed: 10 | Domains: mailfence.com, mailo.com, maksim.si, malmax.se, mamart.si, manafx.com, mandu.si, manwomanshows.com, marcodonati.it, mariankanet.sk
+2026-07-28 14:21:26 Progress: 53.65% | Processed: 595/1109 | Pending: 502 | Processing: 12 | Matched: 228 | Not found: 367 | Failed: 0 | Speed: 16.02/min | ETA: 31:20

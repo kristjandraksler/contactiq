@@ -1,0 +1,29 @@
+﻿2026-07-30 10:46:11 ContactIQ Worker v2 started.
+2026-07-30 10:46:11 BaseUrl=https://contactiq-5w9n.onrender.com BatchSize=1 StallMinutes=5 Log=C:\Users\draks\OneDrive\Documents\contactiq-starter\contactiq\logs\worker-2026-07-30_10-46-11.log
+2026-07-30 10:46:11 Progress: 99.1% | Processed: 1099/1109 | Pending: 10 | Processing: 0 | Matched: 405 | Not found: 694 | Failed: 0 | Speed: 85425.06/min | ETA: 00:00
+2026-07-30 10:56:12 Request failed: The operation has timed out.
+2026-07-30 10:56:12 Retry cez 10 sekund. Consecutive errors: 1
+2026-07-30 10:56:29 Progress: 99.1% | Processed: 1099/1109 | Pending: 9 | Processing: 1 | Matched: 405 | Not found: 694 | Failed: 0 | Speed: 106.67/min | ETA: 00:05
+2026-07-30 10:56:29 Napredek stoji 10.3 min. Poskusam requeue stale jobs.
+2026-07-30 10:56:33 Requeued stale jobs: 1
+2026-07-30 10:56:41 Progress: 99.1% | Processed: 1099/1109 | Pending: 10 | Processing: 0 | Matched: 405 | Not found: 694 | Failed: 0 | Speed: 104.58/min | ETA: 00:05
+2026-07-30 10:58:20 Claimed: 1 | Processed: 1 | Domains: wolfsburg.de
+2026-07-30 10:58:25 Progress: 99.19% | Processed: 1100/1109 | Pending: 9 | Processing: 0 | Matched: 406 | Not found: 694 | Failed: 0 | Speed: 89.82/min | ETA: 00:06
+2026-07-30 11:00:12 Request failed: The remote server returned an error: (502) Bad Gateway.
+2026-07-30 11:00:12 Retry cez 10 sekund. Consecutive errors: 1
+2026-07-30 11:00:23 Request failed: The request was aborted: The connection was closed unexpectedly.
+2026-07-30 11:00:23 Retry cez 20 sekund. Consecutive errors: 2
+2026-07-30 11:00:45 Progress: 99.19% | Processed: 1100/1109 | Pending: 8 | Processing: 1 | Matched: 406 | Not found: 694 | Failed: 0 | Speed: 75.52/min | ETA: 00:06
+2026-07-30 11:10:45 Request failed: The operation has timed out.
+2026-07-30 11:10:45 Retry cez 10 sekund. Consecutive errors: 1
+2026-07-30 11:10:58 Progress: 99.19% | Processed: 1100/1109 | Pending: 7 | Processing: 2 | Matched: 406 | Not found: 694 | Failed: 0 | Speed: 44.38/min | ETA: 00:09
+2026-07-30 11:10:58 Napredek stoji 12.5 min. Poskusam requeue stale jobs.
+2026-07-30 11:11:02 Requeued stale jobs: 2
+2026-07-30 11:11:11 Progress: 99.19% | Processed: 1100/1109 | Pending: 9 | Processing: 0 | Matched: 406 | Not found: 694 | Failed: 0 | Speed: 44/min | ETA: 00:12
+2026-07-30 11:13:13 Request failed: The remote server returned an error: (502) Bad Gateway.
+2026-07-30 11:13:13 Retry cez 10 sekund. Consecutive errors: 1
+2026-07-30 11:13:23 Request failed: The request was aborted: The connection was closed unexpectedly.
+2026-07-30 11:13:23 Retry cez 20 sekund. Consecutive errors: 2
+2026-07-30 11:13:43 Request failed: The request was aborted: The connection was closed unexpectedly.
+2026-07-30 11:13:43 Retry cez 40 sekund. Consecutive errors: 3
+2026-07-30 11:14:24 Progress: 99.19% | Processed: 1100/1109 | Pending: 8 | Processing: 1 | Matched: 406 | Not found: 694 | Failed: 0 | Speed: 38.98/min | ETA: 00:12

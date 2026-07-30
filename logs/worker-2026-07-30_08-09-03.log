@@ -1,0 +1,71 @@
+﻿2026-07-30 08:09:04 ContactIQ Worker v2 started.
+2026-07-30 08:09:04 BaseUrl=https://contactiq-5w9n.onrender.com BatchSize=10 StallMinutes=10 Log=C:\Users\draks\OneDrive\Documents\contactiq-starter\contactiq\logs\worker-2026-07-30_08-09-03.log
+2026-07-30 08:09:06 Progress: 78.9% | Processed: 875/1109 | Pending: 222 | Processing: 12 | Matched: 333 | Not found: 542 | Failed: 0 | Speed: 24075.89/min | ETA: 00:00
+2026-07-30 08:10:52 Claimed: 10 | Processed: 10 | Domains: slovanet.sk, slovenjgradec.si, slteam.sk, smail.unipo.sk, smartmoneysolutions.si, smartware.pt, smis.ro, solo.ee, sonics.ch, sorvatziotis.com
+2026-07-30 08:10:56 Progress: 79.8% | Processed: 885/1109 | Pending: 212 | Processing: 12 | Matched: 337 | Not found: 548 | Failed: 0 | Speed: 472.02/min | ETA: 00:26
+2026-07-30 08:11:45 Claimed: 10 | Processed: 10 | Domains: spacil.sk, splitclothing.de, spoko.pl, spolgas.sk, spoonconcept.com, spoznaj.eu, spricigo.it, spurek.sk, spyderteam.de, starbac.ro
+2026-07-30 08:11:49 Progress: 80.7% | Processed: 895/1109 | Pending: 202 | Processing: 12 | Matched: 340 | Not found: 555 | Failed: 0 | Speed: 325.17/min | ETA: 00:37
+2026-07-30 08:12:38 Claimed: 10 | Processed: 10 | Domains: stargate.de, startmail.com, statikaalen.de, stazione.ch, stefanschnabel.de, stefko-trans.de, steinarbeit.com, steinhaus.hu, steuerkanzlei-adam.de, stonline.sk
+2026-07-30 08:12:42 Progress: 81.61% | Processed: 905/1109 | Pending: 192 | Processing: 12 | Matched: 345 | Not found: 560 | Failed: 0 | Speed: 248.74/min | ETA: 00:46
+2026-07-30 08:13:49 Claimed: 10 | Processed: 10 | Domains: strasek.com, striligas.gr, student.hogent.be, student.um.si, studiolik.si, studiotgr.it, subterra.cz, sunny-euro.com, sunrise.ch, super-snake.si
+2026-07-30 08:13:53 Progress: 82.51% | Processed: 915/1109 | Pending: 182 | Processing: 12 | Matched: 349 | Not found: 566 | Failed: 0 | Speed: 189.86/min | ETA: 00:57
+2026-07-30 08:15:52 Claimed: 10 | Processed: 10 | Domains: suricate.us, susut.de, svslegal.ee, swissonline.ch, sygxrono.gr, szm.sk, sztgnet.hu, t-1.si, t-2.net, t-2.si
+2026-07-30 08:15:56 Progress: 83.41% | Processed: 925/1109 | Pending: 172 | Processing: 12 | Matched: 351 | Not found: 574 | Failed: 0 | Speed: 134.62/min | ETA: 01:16
+2026-07-30 08:25:56 Request failed: The operation has timed out.
+2026-07-30 08:25:56 Retry cez 10 sekund. Consecutive errors: 1
+2026-07-30 08:26:15 Progress: 84.22% | Processed: 934/1109 | Pending: 162 | Processing: 13 | Matched: 354 | Not found: 580 | Failed: 0 | Speed: 54.31/min | ETA: 02:58
+2026-07-30 08:29:27 Claimed: 10 | Processed: 10 | Domains: tekatltd.gr, tel.net.ba, tele2.com, telefonica.net, teleing.com, telemach.net, telenams.lv, telenet.be, telia.com, telmos.si
+2026-07-30 08:29:30 Progress: 85.21% | Processed: 945/1109 | Pending: 152 | Processing: 12 | Matched: 356 | Not found: 589 | Failed: 0 | Speed: 46.21/min | ETA: 03:17
+2026-07-30 08:31:02 Claimed: 10 | Processed: 10 | Domains: teol.net, teresa.si, testis.com, thaneadvisors.co.uk, thomas-anders.net, tijara.ch, tim.it, tirol.com, tiscali.cz, tiscali.it
+2026-07-30 08:31:07 Progress: 86.11% | Processed: 955/1109 | Pending: 142 | Processing: 12 | Matched: 360 | Not found: 595 | Failed: 0 | Speed: 43.3/min | ETA: 03:16
+2026-07-30 08:32:35 Claimed: 10 | Processed: 10 | Domains: tlehner.de, tlen.pl, tlu.ee, tnn.si, tolna.net, topclerks.sk, torpedo.ee, totalise.co.uk, totalmotoraid.co.uk, tpi.tirol
+2026-07-30 08:32:38 Progress: 87.02% | Processed: 965/1109 | Pending: 132 | Processing: 12 | Matched: 365 | Not found: 600 | Failed: 0 | Speed: 40.93/min | ETA: 03:13
+2026-07-30 08:33:35 Claimed: 10 | Processed: 10 | Domains: tpponline.de, transka.de, transportesfilip.com, travel-tourist.com, trbeton.hu, treehousemedia.de, triera.net, triglav.si, trockenbau.best, trombridge.es
+2026-07-30 08:33:39 Progress: 87.92% | Processed: 975/1109 | Pending: 122 | Processing: 12 | Matched: 368 | Not found: 607 | Failed: 0 | Speed: 39.66/min | ETA: 03:04
+2026-07-30 08:35:13 Claimed: 10 | Processed: 10 | Domains: tsf-trofa.com, tsoutsikos.gr, ttcm.com, tucomprahabitual.com, tuta.io, tutamail.com, tutanota.com, tvic.sk, tvnet.lv, twinport.fi
+2026-07-30 08:35:17 Progress: 88.82% | Processed: 985/1109 | Pending: 112 | Processing: 12 | Matched: 373 | Not found: 612 | Failed: 0 | Speed: 37.56/min | ETA: 02:58
+2026-07-30 08:36:42 Request failed: The remote server returned an error: (502) Bad Gateway.
+2026-07-30 08:36:42 Retry cez 10 sekund. Consecutive errors: 1
+2026-07-30 08:36:52 Request failed: The request was aborted: The connection was closed unexpectedly.
+2026-07-30 08:36:52 Retry cez 20 sekund. Consecutive errors: 2
+2026-07-30 08:37:14 Progress: 89.45% | Processed: 992/1109 | Pending: 102 | Processing: 15 | Matched: 374 | Not found: 618 | Failed: 0 | Speed: 35.21/min | ETA: 02:53
+2026-07-30 08:38:11 Claimed: 10 | Processed: 10 | Domains: vanuatu.com.vu, vaoagro.ee, vcon.at, vegacamion.eu, velvet.hu, vena-hairdesign.de, vencelj.si, venditor.si, ventilatsiooni.ee, verzelak.si
+2026-07-30 08:38:15 Progress: 90.35% | Processed: 1002/1109 | Pending: 92 | Processing: 15 | Matched: 379 | Not found: 623 | Failed: 0 | Speed: 34.33/min | ETA: 02:40
+2026-07-30 08:39:25 Claimed: 10 | Processed: 10 | Domains: vetpromet.si, villadsen.mobi, villoutreys.net, vip.hr, vip.interia.pl, vipmail.hu, vipvoyage.ro, viral.si, virgilio.it, vitus-net.de
+2026-07-30 08:39:29 Progress: 91.25% | Processed: 1012/1109 | Pending: 82 | Processing: 15 | Matched: 382 | Not found: 630 | Failed: 0 | Speed: 33.27/min | ETA: 02:27
+2026-07-30 08:41:21 Claimed: 10 | Processed: 10 | Domains: vivaldi.net, vlm.sk, vocky.com, vodafone.de, voice-on.de, voka.lv, volny.cz, von.meiss.ch, vonengelmann.de, vonmoos.info
+2026-07-30 08:41:24 Progress: 92.16% | Processed: 1022/1109 | Pending: 72 | Processing: 15 | Matched: 385 | Not found: 637 | Failed: 0 | Speed: 31.6/min | ETA: 02:16
+2026-07-30 08:51:24 Request failed: The operation has timed out.
+2026-07-30 08:51:24 Retry cez 10 sekund. Consecutive errors: 1
+2026-07-30 08:51:40 Progress: 92.97% | Processed: 1031/1109 | Pending: 62 | Processing: 16 | Matched: 387 | Not found: 644 | Failed: 0 | Speed: 24.19/min | ETA: 02:33
+2026-07-30 08:53:12 Request failed: The remote server returned an error: (502) Bad Gateway.
+2026-07-30 08:53:12 Retry cez 10 sekund. Consecutive errors: 1
+2026-07-30 08:53:22 Request failed: The request was aborted: The connection was closed unexpectedly.
+2026-07-30 08:53:22 Retry cez 20 sekund. Consecutive errors: 2
+2026-07-30 08:53:44 Progress: 93.51% | Processed: 1037/1109 | Pending: 52 | Processing: 20 | Matched: 387 | Not found: 650 | Failed: 0 | Speed: 23.21/min | ETA: 02:14
+2026-07-30 09:03:44 Request failed: The operation has timed out.
+2026-07-30 09:03:44 Retry cez 10 sekund. Consecutive errors: 1
+2026-07-30 09:03:56 Progress: 94.32% | Processed: 1046/1109 | Pending: 42 | Processing: 21 | Matched: 387 | Not found: 659 | Failed: 0 | Speed: 19.06/min | ETA: 02:12
+2026-07-30 09:13:44 Claimed: 10 | Processed: 10 | Domains: yahoo.com.tr, yahoo.de, yahoo.es, yahoo.fr, yahoo.gr, yahoo.ie, yahoo.it, yahoo.lt, yahoo.nl, yahoo.no
+2026-07-30 09:13:48 Progress: 95.22% | Processed: 1056/1109 | Pending: 32 | Processing: 21 | Matched: 387 | Not found: 669 | Failed: 0 | Speed: 16.31/min | ETA: 01:57
+2026-07-30 09:15:18 Claimed: 10 | Processed: 10 | Domains: yahoo.ro, yahoo.se, yandex.by, yandex.com, yandex.ru, ymail.com, yoga-waghaeusel.de, yourbrainonblockchain.com, yubc.net, zabola.com
+2026-07-30 09:15:22 Progress: 96.12% | Processed: 1066/1109 | Pending: 22 | Processing: 21 | Matched: 389 | Not found: 677 | Failed: 0 | Speed: 16.08/min | ETA: 01:22
+2026-07-30 09:16:54 Claimed: 10 | Processed: 10 | Domains: zalozenie-sro.sk, zav-sava.si, zavlahy-soos.sk, zazie.si, zeblji.com, zeller24.com, zeos.si, zetaelle.com, zg.ht.hr, zg.htnet.hr
+2026-07-30 09:16:59 Progress: 97.02% | Processed: 1076/1109 | Pending: 12 | Processing: 21 | Matched: 395 | Not found: 681 | Failed: 0 | Speed: 15.84/min | ETA: 00:45
+2026-07-30 09:18:12 Request failed: The remote server returned an error: (502) Bad Gateway.
+2026-07-30 09:18:12 Retry cez 10 sekund. Consecutive errors: 1
+2026-07-30 09:18:22 Request failed: The request was aborted: The connection was closed unexpectedly.
+2026-07-30 09:18:22 Retry cez 20 sekund. Consecutive errors: 2
+2026-07-30 09:18:44 Progress: 97.39% | Processed: 1080/1109 | Pending: 2 | Processing: 27 | Matched: 395 | Not found: 685 | Failed: 0 | Speed: 15.5/min | ETA: 00:07
+2026-07-30 09:28:44 Request failed: The operation has timed out.
+2026-07-30 09:28:44 Retry cez 10 sekund. Consecutive errors: 1
+2026-07-30 09:28:56 Progress: 97.48% | Processed: 1081/1109 | Pending: 0 | Processing: 28 | Matched: 396 | Not found: 685 | Failed: 0 | Speed: 13.53/min | ETA: -
+2026-07-30 09:29:00 Ni novih domen za claim. Cakam 3 sekund.
+2026-07-30 09:29:04 Progress: 97.48% | Processed: 1081/1109 | Pending: 0 | Processing: 28 | Matched: 396 | Not found: 685 | Failed: 0 | Speed: 13.51/min | ETA: -
+2026-07-30 09:29:08 Ni novih domen za claim. Cakam 3 sekund.
+2026-07-30 09:29:12 Progress: 97.48% | Processed: 1081/1109 | Pending: 0 | Processing: 28 | Matched: 396 | Not found: 685 | Failed: 0 | Speed: 13.49/min | ETA: -
+2026-07-30 09:29:17 Ni novih domen za claim. Cakam 3 sekund.
+2026-07-30 09:29:22 Progress: 97.48% | Processed: 1081/1109 | Pending: 0 | Processing: 28 | Matched: 396 | Not found: 685 | Failed: 0 | Speed: 13.46/min | ETA: -
+2026-07-30 09:29:25 Ni novih domen za claim. Cakam 3 sekund.
+2026-07-30 09:29:29 Progress: 97.48% | Processed: 1081/1109 | Pending: 0 | Processing: 28 | Matched: 396 | Not found: 685 | Failed: 0 | Speed: 13.44/min | ETA: -
+2026-07-30 09:29:34 Ni novih domen za claim. Cakam 3 sekund.

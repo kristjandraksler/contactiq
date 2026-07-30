@@ -1,0 +1,49 @@
+﻿2026-07-30 09:41:27 ContactIQ Worker v2 started.
+2026-07-30 09:41:27 BaseUrl=https://contactiq-5w9n.onrender.com BatchSize=5 StallMinutes=10 Log=C:\Users\draks\OneDrive\Documents\contactiq-starter\contactiq\logs\worker-2026-07-30_09-41-27.log
+2026-07-30 09:41:28 Progress: 97.48% | Processed: 1081/1109 | Pending: 28 | Processing: 0 | Matched: 396 | Not found: 685 | Failed: 0 | Speed: 45200.84/min | ETA: 00:00
+2026-07-30 09:43:40 Claimed: 5 | Processed: 5 | Domains: intemann.at, mail.com, unicomp.hu, uglasi.si, unibas.ch
+2026-07-30 09:43:45 Progress: 97.93% | Processed: 1086/1109 | Pending: 23 | Processing: 0 | Matched: 399 | Not found: 687 | Failed: 0 | Speed: 472.43/min | ETA: 00:02
+2026-07-30 09:44:58 Claimed: 5 | Processed: 5 | Domains: windowslive.com, zgs.si, ziggo.nl, zimpler.com, zito.hr
+2026-07-30 09:45:02 Progress: 98.38% | Processed: 1091/1109 | Pending: 18 | Processing: 0 | Matched: 403 | Not found: 688 | Failed: 0 | Speed: 304.42/min | ETA: 00:03
+2026-07-30 09:55:02 Request failed: The operation has timed out.
+2026-07-30 09:55:02 Retry cez 10 sekund. Consecutive errors: 1
+2026-07-30 09:55:13 Progress: 98.92% | Processed: 1097/1109 | Pending: 12 | Processing: 0 | Matched: 404 | Not found: 693 | Failed: 0 | Speed: 79.69/min | ETA: 00:09
+2026-07-30 09:56:12 Request failed: The remote server returned an error: (502) Bad Gateway.
+2026-07-30 09:56:12 Retry cez 10 sekund. Consecutive errors: 1
+2026-07-30 09:56:23 Request failed: The request was aborted: The connection was closed unexpectedly.
+2026-07-30 09:56:23 Retry cez 20 sekund. Consecutive errors: 2
+2026-07-30 09:56:45 Progress: 98.92% | Processed: 1097/1109 | Pending: 7 | Processing: 5 | Matched: 404 | Not found: 693 | Failed: 0 | Speed: 71.71/min | ETA: 00:05
+2026-07-30 09:58:42 Request failed: The remote server returned an error: (502) Bad Gateway.
+2026-07-30 09:58:42 Retry cez 10 sekund. Consecutive errors: 1
+2026-07-30 09:58:53 Request failed: The request was aborted: The connection was closed unexpectedly.
+2026-07-30 09:58:53 Retry cez 20 sekund. Consecutive errors: 2
+2026-07-30 09:59:14 Progress: 99.01% | Processed: 1098/1109 | Pending: 2 | Processing: 9 | Matched: 405 | Not found: 693 | Failed: 0 | Speed: 61.71/min | ETA: 00:01
+2026-07-30 10:09:14 Request failed: The operation has timed out.
+2026-07-30 10:09:14 Retry cez 10 sekund. Consecutive errors: 1
+2026-07-30 10:09:26 Progress: 99.1% | Processed: 1099/1109 | Pending: 0 | Processing: 10 | Matched: 405 | Not found: 694 | Failed: 0 | Speed: 39.27/min | ETA: -
+2026-07-30 10:09:30 Ni novih domen za claim. Cakam 3 sekund.
+2026-07-30 10:09:34 Progress: 99.1% | Processed: 1099/1109 | Pending: 0 | Processing: 10 | Matched: 405 | Not found: 694 | Failed: 0 | Speed: 39.07/min | ETA: -
+2026-07-30 10:09:39 Ni novih domen za claim. Cakam 3 sekund.
+2026-07-30 10:09:43 Progress: 99.1% | Processed: 1099/1109 | Pending: 0 | Processing: 10 | Matched: 405 | Not found: 694 | Failed: 0 | Speed: 38.87/min | ETA: -
+2026-07-30 10:09:48 Ni novih domen za claim. Cakam 3 sekund.
+2026-07-30 10:09:52 Progress: 99.1% | Processed: 1099/1109 | Pending: 0 | Processing: 10 | Matched: 405 | Not found: 694 | Failed: 0 | Speed: 38.66/min | ETA: -
+2026-07-30 10:09:56 Ni novih domen za claim. Cakam 3 sekund.
+2026-07-30 10:10:01 Progress: 99.1% | Processed: 1099/1109 | Pending: 0 | Processing: 10 | Matched: 405 | Not found: 694 | Failed: 0 | Speed: 38.47/min | ETA: -
+2026-07-30 10:10:04 Ni novih domen za claim. Cakam 3 sekund.
+2026-07-30 10:10:08 Progress: 99.1% | Processed: 1099/1109 | Pending: 0 | Processing: 10 | Matched: 405 | Not found: 694 | Failed: 0 | Speed: 38.3/min | ETA: -
+2026-07-30 10:10:13 Ni novih domen za claim. Cakam 3 sekund.
+2026-07-30 10:10:17 Progress: 99.1% | Processed: 1099/1109 | Pending: 0 | Processing: 10 | Matched: 405 | Not found: 694 | Failed: 0 | Speed: 38.11/min | ETA: -
+2026-07-30 10:10:21 Ni novih domen za claim. Cakam 3 sekund.
+2026-07-30 10:10:25 Progress: 99.1% | Processed: 1099/1109 | Pending: 0 | Processing: 10 | Matched: 405 | Not found: 694 | Failed: 0 | Speed: 37.92/min | ETA: -
+2026-07-30 10:10:30 Ni novih domen za claim. Cakam 3 sekund.
+2026-07-30 10:10:34 Progress: 99.1% | Processed: 1099/1109 | Pending: 0 | Processing: 10 | Matched: 405 | Not found: 694 | Failed: 0 | Speed: 37.73/min | ETA: -
+2026-07-30 10:10:39 Ni novih domen za claim. Cakam 3 sekund.
+2026-07-30 10:10:43 Progress: 99.1% | Processed: 1099/1109 | Pending: 0 | Processing: 10 | Matched: 405 | Not found: 694 | Failed: 0 | Speed: 37.54/min | ETA: -
+2026-07-30 10:10:47 Ni novih domen za claim. Cakam 3 sekund.
+2026-07-30 10:10:52 Progress: 99.1% | Processed: 1099/1109 | Pending: 0 | Processing: 10 | Matched: 405 | Not found: 694 | Failed: 0 | Speed: 37.36/min | ETA: -
+2026-07-30 10:10:56 Ni novih domen za claim. Cakam 3 sekund.
+2026-07-30 10:11:00 Progress: 99.1% | Processed: 1099/1109 | Pending: 0 | Processing: 10 | Matched: 405 | Not found: 694 | Failed: 0 | Speed: 37.18/min | ETA: -
+2026-07-30 10:11:03 Ni novih domen za claim. Cakam 3 sekund.
+2026-07-30 10:11:08 Progress: 99.1% | Processed: 1099/1109 | Pending: 0 | Processing: 10 | Matched: 405 | Not found: 694 | Failed: 0 | Speed: 37.02/min | ETA: -
+2026-07-30 10:11:12 Ni novih domen za claim. Cakam 3 sekund.
+2026-07-30 10:11:16 Progress: 99.1% | Processed: 1099/1109 | Pending: 0 | Processing: 10 | Matched: 405 | Not found: 694 | Failed: 0 | Speed: 36.85/min | ETA: -

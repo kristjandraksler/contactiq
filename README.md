@@ -1,37 +1,55 @@
-# ContactIQ Phone Engine v2
+# ContactIQ Worker v2
 
-Zip contains replacement files for:
+Paket vsebuje:
 
-- `apps/api/app/services/phone_parser.py`
-- `apps/api/app/services/phone_finder.py`
-- `apps/api/app/services/website_crawler.py`
-- `apps/api/app/services/providers.py`
+- `apps/api/app/routes/admin_worker.py`
+- `apps/api/app/workers/domain_worker.py`
+- `run_all_domains.ps1`
 
-## Main improvements
+## Kaj doda
 
-- positive/negative context scoring around phone numbers
-- fax, cookie, agency and hosting noise penalties
-- DOM cleanup before visible-text parsing
-- footer score reduced and footer/body duplicate counting removed
-- source-diversity and page-diversity bonuses
-- evidence attached to every candidate
-- confidence v2 based on independent signals
-- URL canonicalization and crawler noise-path filtering
+- endpoint `POST /admin/worker/requeue-stale`;
+- samodejni requeue zataknjenih `PROCESSING` jobov;
+- retry pri 502, 503, timeoutih in resetih povezave;
+- eksponentno čakanje po napakah;
+- hitrost, ETA in podrobnejši napredek;
+- log datoteko v `logs/`;
+- nastavljiv batch size.
 
-## Install
+## Namestitev
 
-Copy the four files over the existing files, then run:
+Zamenjaj tri datoteke in nato iz korena projekta:
 
-```bash
-python -m compileall apps/api/app/services
-```
-
-Commit and push from the monorepo root:
-
-```bash
-git add apps/api/app/services
-git commit -m "Upgrade phone matching engine v2"
+```powershell
+git add .\apps\api\app\routes\admin_worker.py
+git add .\apps\api\app\workers\domain_worker.py
+git add .\run_all_domains.ps1
+git commit -m "Add resilient worker v2"
 git push origin main
 ```
 
-No database migration is required. Existing top-level `FinderResult` fields remain unchanged. Candidate objects now include additional fields: `source_diversity`, `page_diversity`, and `evidence`.
+Po Render deployu preveri endpoint:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "https://contactiq-5w9n.onrender.com/admin/worker/requeue-stale?stale_minutes=10"
+```
+
+Zagon z varnimi privzetimi vrednostmi:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\run_all_domains.ps1
+```
+
+Zagon z večjim batchom:
+
+```powershell
+powershell -ExecutionPolicy Bypass `
+  -File .\run_all_domains.ps1 `
+  -BatchSize 10 `
+  -SleepSeconds 3 `
+  -StallMinutes 10
+```
+
+Za Render, ki je že vračal 502, začni z `BatchSize 5`. Povečaj na 10 šele po stabilnem testu.

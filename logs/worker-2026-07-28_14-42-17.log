@@ -1,0 +1,62 @@
+﻿2026-07-28 14:42:17 ContactIQ Worker v2 started.
+2026-07-28 14:42:17 BaseUrl=https://contactiq-5w9n.onrender.com BatchSize=10 StallMinutes=10 Log=C:\Users\draks\OneDrive\Documents\contactiq-starter\contactiq\logs\worker-2026-07-28_14-42-17.log
+2026-07-28 14:42:17 Progress: 54.55% | Processed: 605/1109 | Pending: 492 | Processing: 12 | Matched: 230 | Not found: 375 | Failed: 0 | Speed: 44879.27/min | ETA: 00:00
+2026-07-28 14:43:34 Claimed: 10 | Processed: 10 | Domains: meelis.eu, megagencja.pl, mein.gmx, melboinstal.ro, merunka.de, mesojedec.net, meszely.eu, metaadvisory.ee, metocra.com, metzger-transporte.de
+2026-07-28 14:43:38 Progress: 55.46% | Processed: 615/1109 | Pending: 482 | Processing: 12 | Matched: 233 | Not found: 382 | Failed: 0 | Speed: 454.14/min | ETA: 01:03
+2026-07-28 14:44:36 Claimed: 10 | Processed: 10 | Domains: mezme.si, miass.de, michaelafruit.sk, microgramm.si, mihahenigsman.com, mihm.nrw, mikroelektronika.si, mikron.sk, milenium-trade.hr, mineralka.si
+2026-07-28 14:44:39 Progress: 56.36% | Processed: 625/1109 | Pending: 472 | Processing: 12 | Matched: 237 | Not found: 388 | Failed: 0 | Speed: 262.9/min | ETA: 01:47
+2026-07-28 14:45:25 Claimed: 10 | Processed: 10 | Domains: mistake.ws, mitjadolinsek.com, mkls.si, mladenstojanovic.net, mlinostroj.si, mmrom.ro, mns-sicherheitsdienst.de, modd.sk, moderndental.hr, mogep.hu
+2026-07-28 14:45:29 Progress: 57.26% | Processed: 635/1109 | Pending: 462 | Processing: 12 | Matched: 243 | Not found: 392 | Failed: 0 | Speed: 198.25/min | ETA: 02:19
+2026-07-28 14:46:30 Claimed: 10 | Processed: 10 | Domains: moixseguros.com, mokra.cz, moll.one, mps.hr, mrakoplasnet.eu, msn.com, msplusteam.si, mstanczyk.de, mtec.gr, mts.rs
+2026-07-28 14:46:34 Progress: 58.16% | Processed: 645/1109 | Pending: 452 | Processing: 12 | Matched: 246 | Not found: 399 | Failed: 0 | Speed: 150.39/min | ETA: 03:00
+2026-07-28 14:47:17 Claimed: 10 | Processed: 10 | Domains: mueller-ob.de, mujmail.cz, mujweb.cz, multiversum.si, mushoff.de, mussgnug.net, myport.ac.uk, myyahoo.com, n-fuse.co, nagel.it
+2026-07-28 14:47:21 Progress: 59.06% | Processed: 655/1109 | Pending: 442 | Processing: 12 | Matched: 248 | Not found: 407 | Failed: 0 | Speed: 129.23/min | ETA: 03:25
+2026-07-28 14:48:32 Claimed: 10 | Processed: 10 | Domains: namurs.com, natinox.ro, navigo.si, neillawrence.com, neptun-sub.hr, nestyh.com, net-care.it, net.hr, netc.eu, netcabo.pt
+2026-07-28 14:48:35 Progress: 59.96% | Processed: 665/1109 | Pending: 432 | Processing: 12 | Matched: 252 | Not found: 413 | Failed: 0 | Speed: 105.35/min | ETA: 04:06
+2026-07-28 14:49:18 Claimed: 10 | Processed: 10 | Domains: neti.ee, netsi.net, netzburgenland.at, neuf.fr, neumann.ac, nfsdoors.com, nicehash.com, nicoladeluca.it, nikanarenovatie.nl, nikolajev.ee
+2026-07-28 14:49:21 Progress: 60.87% | Processed: 675/1109 | Pending: 422 | Processing: 12 | Matched: 255 | Not found: 420 | Failed: 0 | Speed: 95.42/min | ETA: 04:25
+2026-07-28 14:50:22 Claimed: 10 | Processed: 10 | Domains: nikos.sk, nimam.si, ninis.gr, nioinvestment.com, nivis.hu, nko-law.com, nonalko.sk, nord-glas.pl, nordic-timber.lt, northstaradvisors.biz
+2026-07-28 14:50:26 Progress: 61.77% | Processed: 685/1109 | Pending: 412 | Processing: 12 | Matched: 260 | Not found: 425 | Failed: 0 | Speed: 84.04/min | ETA: 04:54
+2026-07-28 14:52:15 Claimed: 10 | Processed: 10 | Domains: nos.ie, nosey.yt, nozewski.pl, ntlworld.com, o-vik.com, o2.pl, o2mail.de, oehrle.com, ognjisce.si, oksport.org
+2026-07-28 14:52:18 Progress: 62.67% | Processed: 695/1109 | Pending: 402 | Processing: 12 | Matched: 262 | Not found: 433 | Failed: 0 | Speed: 69.31/min | ETA: 05:47
+2026-07-28 14:53:14 Claimed: 10 | Processed: 10 | Domains: oktv.se, okuehnel.de, olewissing.dk, oliver2002.com, onet.eu, onet.pl, online.de, online.ee, online.no, onlinehome.de
+2026-07-28 14:53:18 Progress: 63.57% | Processed: 705/1109 | Pending: 392 | Processing: 12 | Matched: 267 | Not found: 438 | Failed: 0 | Speed: 64/min | ETA: 06:07
+2026-07-28 14:54:38 Claimed: 10 | Processed: 10 | Domains: op.pl, openrock.sk, opoczta.pl, oraborg.com, orange.com, orange.fr, orangemail.sk, orava.sk, oravanet.sk, os.ht.hr
+2026-07-28 14:54:41 Progress: 64.47% | Processed: 715/1109 | Pending: 382 | Processing: 12 | Matched: 268 | Not found: 447 | Failed: 0 | Speed: 57.64/min | ETA: 06:37
+2026-07-28 14:59:59 Claimed: 10 | Processed: 10 | Domains: oslomet.no, osnanet.de, ostrojica.si, otenet.gr, otroci.org, outlook.be, outlook.com, outlook.com.gr, outlook.cz, outlook.de
+2026-07-28 15:00:03 Progress: 65.37% | Processed: 725/1109 | Pending: 372 | Processing: 12 | Matched: 271 | Not found: 454 | Failed: 0 | Speed: 40.79/min | ETA: 09:07
+2026-07-28 15:01:29 Claimed: 10 | Processed: 10 | Domains: outlook.es, outlook.fr, outlook.hu, outlook.it, outlook.lv, outlook.pt, outlook.sa, outlook.sk, pablaz.com, pacz.to
+2026-07-28 15:01:32 Progress: 66.28% | Processed: 735/1109 | Pending: 362 | Processing: 12 | Matched: 271 | Not found: 464 | Failed: 0 | Speed: 38.15/min | ETA: 09:29
+2026-07-28 15:02:19 Claimed: 10 | Processed: 10 | Domains: pamis.si, pan-germany.de, pana.si, paraplast.si, parketarstvo-novak.si, partynetradio.com, patana.ac.th, paterakisfamily.gr, pavin.hr, pcshot.lt
+2026-07-28 15:02:23 Progress: 67.18% | Processed: 745/1109 | Pending: 352 | Processing: 12 | Matched: 279 | Not found: 466 | Failed: 0 | Speed: 37.06/min | ETA: 09:29
+2026-07-28 15:03:40 Claimed: 10 | Processed: 10 | Domains: peruntech.cz, pervester.dk, pesteam.eu, petrol.si, pezu.sk, pflegedienst-riederle.de, pharmadent.hu, phbuilding.eu, phipra.com, phoenixiberia.com
+2026-07-28 15:03:44 Progress: 68.08% | Processed: 755/1109 | Pending: 342 | Processing: 12 | Matched: 285 | Not found: 470 | Failed: 0 | Speed: 35.2/min | ETA: 09:42
+2026-07-28 15:05:45 Claimed: 10 | Processed: 10 | Domains: pigo.si, pizka.de, pizzamammamia.bg, plastikontakt.de, pm-control.de, pm.me, pmf.si, pobox.sk, poczta.fm, poczta.onet.eu
+2026-07-28 15:05:48 Progress: 68.98% | Processed: 765/1109 | Pending: 332 | Processing: 12 | Matched: 288 | Not found: 477 | Failed: 0 | Speed: 32.51/min | ETA: 10:12
+2026-07-28 15:07:21 Claimed: 10 | Processed: 10 | Domains: poczta.onet.pl, porr.at, post.com, post.cz, post.sk, posteo.de, posteo.net, potsdam.cc, presently.hu, preugschat-elektro.de
+2026-07-28 15:07:24 Progress: 69.88% | Processed: 775/1109 | Pending: 322 | Processing: 12 | Matched: 292 | Not found: 483 | Failed: 0 | Speed: 30.85/min | ETA: 10:26
+2026-07-28 15:10:51 Claimed: 10 | Processed: 10 | Domains: primitus.si, primozbozic.com, privaterelay.appleid.com, proaktivsport.si, proclean.no, projectexcellence.net, projekt14.de, projekts3.lv, protalexa.cz, proteco.ch
+2026-07-28 15:10:55 Progress: 70.78% | Processed: 785/1109 | Pending: 312 | Processing: 12 | Matched: 295 | Not found: 490 | Failed: 0 | Speed: 27.41/min | ETA: 11:22
+2026-07-28 15:16:21 Claimed: 10 | Processed: 10 | Domains: protect.si, proton.me, protonmail.ch, protonmail.com, psihoterapija.si, puodai.lt, pvk.cz, pvr.si, pw.edu.pl, qu7.de
+2026-07-28 15:16:25 Progress: 71.69% | Processed: 795/1109 | Pending: 302 | Processing: 12 | Matched: 298 | Not found: 497 | Failed: 0 | Speed: 23.29/min | ETA: 12:57
+2026-07-28 15:17:10 Claimed: 10 | Processed: 10 | Domains: quinkelen.de, quvault.com, r-ski.sk, rabenstein-sa.de, radenska.si, radlje.com, rahatmahatix.com, rambler.ru, raseli.eu, raute.sk
+2026-07-28 15:17:14 Progress: 72.59% | Processed: 805/1109 | Pending: 292 | Processing: 12 | Matched: 303 | Not found: 502 | Failed: 0 | Speed: 23.03/min | ETA: 12:40
+2026-07-28 15:18:14 Claimed: 10 | Processed: 10 | Domains: ravnesystems.com, rdizola.si, reachafrica.co, rebeccaperfect.com, reimal.ch, reinken.biz, relia.hr, resch.ro, rescoval.ee, revan.sk
+2026-07-28 15:18:17 Progress: 73.49% | Processed: 815/1109 | Pending: 282 | Processing: 12 | Matched: 308 | Not found: 507 | Failed: 0 | Speed: 22.63/min | ETA: 12:27
+2026-07-28 15:19:06 Claimed: 10 | Processed: 10 | Domains: revoma.de, rgzc.si, ri.t-com.hr, richblaha.com, riesimebyvanie.sk, rigi-holzplan.ch, rigip.si, riskpart.re, rjcutting.co.uk, rmglasa.de
+2026-07-28 15:19:09 Progress: 74.39% | Processed: 825/1109 | Pending: 272 | Processing: 12 | Matched: 314 | Not found: 511 | Failed: 0 | Speed: 22.37/min | ETA: 12:09
+2026-07-28 15:19:54 Claimed: 10 | Processed: 10 | Domains: rmth.de, robas.si, rochus.sk, rocketmail.com, rodzfactory.pl, rolandschwegle.de, roni-nepremicnine.si, roosoja.ee, rosmarino.ch, rotar.si
+2026-07-28 15:19:57 Progress: 75.29% | Processed: 835/1109 | Pending: 262 | Processing: 12 | Matched: 320 | Not found: 515 | Failed: 0 | Speed: 22.16/min | ETA: 11:49
+2026-07-28 15:21:10 Claimed: 10 | Processed: 10 | Domains: rudirozman.si, rudnick.biz, runne.se, s5.net, sakistsikouris.gr, sandra-baumeister.de, sanibo.com, sanitaer-mehr.de, sans.si, sapo.pt
+2026-07-28 15:21:13 Progress: 76.19% | Processed: 845/1109 | Pending: 252 | Processing: 12 | Matched: 322 | Not found: 523 | Failed: 0 | Speed: 21.7/min | ETA: 11:36
+2026-07-28 15:21:52 Claimed: 10 | Processed: 10 | Domains: sat-control.si, satin.si, sb.t-com.hr, schalski.de, scharp.se, scheerhorn.de, scheucher.at, schmidt-mueller.de, scholem-ben.co.il, sdlink.co.rs
+2026-07-28 15:21:56 Progress: 77.1% | Processed: 855/1109 | Pending: 242 | Processing: 12 | Matched: 325 | Not found: 530 | Failed: 0 | Speed: 21.56/min | ETA: 11:13
+2026-07-28 15:31:56 Request failed: The operation has timed out.
+2026-07-28 15:31:56 Retry cez 10 sekund. Consecutive errors: 1
+2026-07-28 15:32:09 Progress: 77.91% | Processed: 864/1109 | Pending: 232 | Processing: 13 | Matched: 329 | Not found: 535 | Failed: 0 | Speed: 17.33/min | ETA: 13:23
+2026-07-28 15:59:05 Request failed: The underlying connection was closed: A connection that was expected to be kept alive was closed by the server.
+2026-07-28 15:59:05 Retry cez 10 sekund. Consecutive errors: 1
+2026-07-28 18:38:03 Request failed: The remote name could not be resolved: 'contactiq-5w9n.onrender.com'
+2026-07-28 18:38:03 Retry cez 20 sekund. Consecutive errors: 2
+2026-07-30 08:07:17 Request failed: The remote name could not be resolved: 'contactiq-5w9n.onrender.com'
+2026-07-30 08:07:18 Retry cez 40 sekund. Consecutive errors: 3
