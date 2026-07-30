@@ -1,9 +1,19 @@
 from __future__ import annotations
 
+import logging
 import re
+import threading
+import time
 from dataclasses import dataclass
 
-PUBLIC_EMAIL_DOMAINS = {
+from app.database import get_supabase
+
+
+logger = logging.getLogger(__name__)
+
+# Safe bootstrap fallback. Database values are merged into this cache.
+# This keeps the API operational even if Supabase is briefly unavailable.
+FALLBACK_PUBLIC_EMAIL_DOMAINS = {
     "gmail.com", "googlemail.com", "yahoo.com", "yahoo.co.uk", "yahoo.de",
     "yahoo.fr", "yahoo.it", "yahoo.es", "outlook.com", "outlook.de",
     "outlook.fr", "hotmail.com", "hotmail.co.uk", "hotmail.de", "hotmail.fr",
@@ -11,12 +21,18 @@ PUBLIC_EMAIL_DOMAINS = {
     "mac.com", "proton.me", "protonmail.com", "aol.com", "gmx.com",
     "gmx.de", "gmx.at", "gmx.ch", "mail.com", "zoho.com", "yandex.com",
     "yandex.ru", "tutanota.com", "tuta.com", "fastmail.com",
-    # Slovenian and regional ISP / public mailbox domains. These are mailbox
-    # providers, not the user's company website, and must never be crawled.
     "telemach.net", "siol.net", "t-2.net", "amis.net", "volja.net",
     "email.si", "guest.arnes.si", "arnes.si", "a1.net", "net.hr",
     "vip.hr", "iskon.hr", "t-com.hr", "mts.rs", "eunet.rs", "sbb.rs",
+    "mailbox.org", "mail.ch", "posteo.net", "sapo.pt",
+    "teol.net", "tel.net.ba", "bih.net.ba", "blic.net",
 }
+
+PUBLIC_EMAIL_CACHE_TTL_SECONDS = 300
+
+_cache_lock = threading.Lock()
+_cached_public_domains: set[str] = set(FALLBACK_PUBLIC_EMAIL_DOMAINS)
+_cache_loaded_at = 0.0
 
 
 def clean_domain(value: str) -> str:
@@ -28,8 +44,92 @@ def clean_domain(value: str) -> str:
     return domain.removeprefix("www.")
 
 
+def refresh_public_email_domains(
+    *,
+    force: bool = False,
+) -> set[str]:
+    """
+    Load public mailbox domains from Supabase and merge them with the safe
+    fallback set. The cache is process-local and refreshes every five minutes.
+    """
+    global _cached_public_domains, _cache_loaded_at
+
+    now = time.monotonic()
+
+    if (
+        not force
+        and _cache_loaded_at
+        and now - _cache_loaded_at < PUBLIC_EMAIL_CACHE_TTL_SECONDS
+    ):
+        return set(_cached_public_domains)
+
+    with _cache_lock:
+        now = time.monotonic()
+
+        if (
+            not force
+            and _cache_loaded_at
+            and now - _cache_loaded_at < PUBLIC_EMAIL_CACHE_TTL_SECONDS
+        ):
+            return set(_cached_public_domains)
+
+        domains = set(FALLBACK_PUBLIC_EMAIL_DOMAINS)
+
+        try:
+            response = (
+                get_supabase()
+                .table("public_email_domains")
+                .select("domain")
+                .execute()
+            )
+
+            for row in response.data or []:
+                raw_domain = str(row.get("domain") or "")
+                domain = clean_domain(raw_domain)
+
+                if domain and "." in domain:
+                    domains.add(domain)
+
+        except Exception:
+            logger.exception(
+                "Could not refresh public email domain cache; using fallback/cache."
+            )
+
+            if _cached_public_domains:
+                return set(_cached_public_domains)
+
+        _cached_public_domains = domains
+        _cache_loaded_at = time.monotonic()
+
+        return set(_cached_public_domains)
+
+
+def get_public_email_domains() -> set[str]:
+    return refresh_public_email_domains(force=False)
+
+
+def public_email_cache_info() -> dict[str, int | float]:
+    age_seconds = (
+        max(0.0, time.monotonic() - _cache_loaded_at)
+        if _cache_loaded_at
+        else -1.0
+    )
+
+    return {
+        "domains_cached": len(_cached_public_domains),
+        "cache_age_seconds": round(age_seconds, 2),
+        "cache_ttl_seconds": PUBLIC_EMAIL_CACHE_TTL_SECONDS,
+    }
+
+
 def is_public_email_domain(value: str) -> bool:
-    return clean_domain(value) in PUBLIC_EMAIL_DOMAINS
+    domain = clean_domain(value)
+
+    if not domain:
+        return False
+
+    return domain in get_public_email_domains()
+
 
 GENERIC_LOCAL_PARTS = {
     "info",
@@ -146,4 +246,3 @@ def extract_person_hint_from_email(
         search_terms=tuple(dict.fromkeys(terms)),
         reliable_name=reliable_name,
     )
-

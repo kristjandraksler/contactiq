@@ -8,6 +8,7 @@ from app.routes.enrichment import router as enrichment_router
 from app.routes.stats import router as stats_router
 from app.routes.leads import router as leads_router
 from app.routes.admin_worker import router as admin_worker_router
+from app.routes.public_providers import router as public_providers_router
 
 app = FastAPI(
     title="ContactIQ API",
@@ -15,6 +16,7 @@ app = FastAPI(
 )
 
 app.include_router(stats_router)
+app.include_router(public_providers_router)
 app.include_router(enrichment_router)
 app.include_router(contacts_router)
 app.include_router(leads_router)
