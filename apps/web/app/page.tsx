@@ -19,6 +19,8 @@ type CountryStat = {
 
 type Stats = {
   emails_total: number;
+  business_contacts?: number;
+  public_email?: number;
   pending: number;
   matched: number;
   partial: number;
@@ -26,6 +28,10 @@ type Stats = {
   failed: number;
   completed: number;
   success_rate: number;
+  business_success_rate?: number;
+  average_confidence?: number;
+  person_phones?: number;
+  company_phones?: number;
   countries?: CountryStat[];
   countries_total?: number;
   unknown_country?: number;
@@ -165,7 +171,6 @@ function confidenceTone(confidence: number | null): string {
 export default function Home() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [publicProviderFailures, setPublicProviderFailures] = useState(0);
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
 
@@ -180,13 +185,10 @@ export default function Home() {
       setDashboardLoading(true);
       setDashboardError(null);
 
-      const [statsResponse, contactsResponse, failedContactsResponse] =
+      const [statsResponse, contactsResponse] =
         await Promise.all([
           fetch(`${API_URL}/stats`, { cache: "no-store" }),
           fetch(`${API_URL}/contacts?page=1&page_size=8`, {
-            cache: "no-store",
-          }),
-          fetch(`${API_URL}/contacts?page=1&page_size=250&status=FAILED`, {
             cache: "no-store",
           }),
         ]);
@@ -200,20 +202,8 @@ export default function Home() {
 
       const statsData: Stats = await statsResponse.json();
       const contactsData: ContactsResponse = await contactsResponse.json();
-      let publicFailureCount = 0;
-
-      if (failedContactsResponse.ok) {
-        const firstFailedPage: ContactsResponse =
-          await failedContactsResponse.json();
-
-        publicFailureCount += firstFailedPage.items.filter((contact) =>
-          isPublicEmailDomain(contact.domain),
-        ).length;
-      }
-
       setStats(statsData);
       setContacts(contactsData.items);
-      setPublicProviderFailures(publicFailureCount);
     } catch (error) {
       setDashboardError(
         error instanceof Error
@@ -291,48 +281,39 @@ export default function Home() {
     }
   }
 
-  const realFailures = Math.max(
-    0,
-    (stats?.failed ?? 0) - publicProviderFailures,
-  );
+  const realFailures = stats?.failed ?? 0;
   const withoutPhone =
     (stats?.partial ?? 0) +
-    (stats?.not_found ?? 0) +
-    publicProviderFailures;
+    (stats?.not_found ?? 0);
 
   const metricCards = [
     {
-      label: "Vsi kontakti",
-      value: stats?.emails_total ?? 0,
-      helper: "Kontaktov v bazi",
+      label: "Poslovni kontakti",
+      value: stats?.business_contacts ?? 0,
+      helper: "Kontakti brez javnih e-mail ponudnikov",
       icon: "users",
+    },
+    {
+      label: "Javni e-maili",
+      value: stats?.public_email ?? 0,
+      helper: "Gmail, Hotmail, Yahoo in podobni",
+      icon: "globe",
     },
     {
       label: "Najdeni telefoni",
       value: stats?.matched ?? 0,
-      helper: "Uspešni zadetki",
+      helper: `${formatNumber(stats?.person_phones ?? 0)} osebnih · ${formatNumber(stats?.company_phones ?? 0)} podjetniških`,
       icon: "phone",
     },
     {
       label: "Uspešnost",
-      value: `${stats?.success_rate ?? 0}%`,
-      helper: `${formatNumber(stats?.completed ?? 0)} obdelanih`,
+      value: `${stats?.business_success_rate ?? stats?.success_rate ?? 0}%`,
+      helper: `${formatNumber(stats?.completed ?? 0)} obdelanih poslovnih kontaktov`,
       icon: "chart",
     },
     {
-      label: "Države",
-      value: stats?.countries_total ?? 0,
-      helper:
-        stats?.countries?.[0]
-          ? `${stats.countries[0].flag ?? "🌍"} ${
-              stats.countries[0].name ?? stats.countries[0].code
-            }: ${formatNumber(stats.countries[0].count)}`
-          : "Geo podatki še niso na voljo",
-      icon: "globe",
-    },
-    {
-      label: "V obdelavi",
-      value: stats?.pending ?? 0,
+      label: "Povp. confidence",
+      value: `${stats?.average_confidence ?? 0}%`,
       helper: `${formatNumber(withoutPhone)} brez telefona · ${formatNumber(realFailures)} napak`,
       icon: "spark",
     },

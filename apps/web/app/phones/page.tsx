@@ -231,7 +231,7 @@ export default function PhonesPage() {
     async function loadCountries() {
       try {
         const response = await fetch(
-          `${API_URL}/contacts/countries`,
+          `${API_URL}/contacts/countries?has_phone=true`,
           { cache: "no-store" },
         );
 

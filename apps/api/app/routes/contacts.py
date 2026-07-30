@@ -32,6 +32,12 @@ def list_contacts(
             "NOT_FOUND, FAILED ali PUBLIC_EMAIL."
         ),
     ),
+    country: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=2,
+        description="ISO2 koda države.",
+    ),
 ) -> dict[str, object]:
     try:
         supabase = get_supabase()
@@ -42,9 +48,15 @@ def list_contacts(
             "PARTIAL_MATCH",
             "NOT_FOUND",
             "FAILED",
+            "PUBLIC_EMAIL",
         }
 
         normalized_status = status.strip().upper() if status else None
+        normalized_country = (
+            country.strip().upper()
+            if country
+            else None
+        )
 
         if normalized_status and normalized_status not in allowed_statuses:
             raise HTTPException(
@@ -75,7 +87,13 @@ def list_contacts(
                     "last_scan,"
                     "status,"
                     "created_at,"
-                    "updated_at"
+                    "updated_at,"
+                    "country_code,"
+                    "country_name,"
+                    "country_flag,"
+                    "country_confidence,"
+                    "country_source,"
+                    "person_match_type"
                 ),
                 count="exact",
             )
@@ -83,6 +101,9 @@ def list_contacts(
 
         if normalized_status:
             query = query.eq("status", normalized_status)
+
+        if normalized_country:
+            query = query.eq("country_code", normalized_country)
 
         if search and search.strip():
             safe_search = (
@@ -125,6 +146,7 @@ def list_contacts(
             "filters": {
                 "search": search.strip() if search else None,
                 "status": normalized_status,
+                "country": normalized_country,
             },
         }
 
@@ -135,4 +157,67 @@ def list_contacts(
         raise HTTPException(
             status_code=500,
             detail=f"Could not load contacts: {exc}",
+        ) from exc
+
+
+@router.get("/contacts/countries")
+def list_contact_countries(
+    has_phone: bool | None = Query(
+        default=None,
+        description="Če je true, šteje samo kontakte s telefonom.",
+    ),
+) -> dict[str, object]:
+    try:
+        supabase = get_supabase()
+
+        query = (
+            supabase.table("email_targets")
+            .select(
+                "country_code,country_name,country_flag,phone"
+            )
+            .not_.is_("country_code", "null")
+        )
+
+        if has_phone is True:
+            query = query.not_.is_("phone", "null")
+        elif has_phone is False:
+            query = query.is_("phone", "null")
+
+        response = query.execute()
+
+        counts: dict[str, dict[str, object]] = {}
+
+        for row in response.data or []:
+            code = str(row.get("country_code") or "").upper()
+            if not code:
+                continue
+
+            item = counts.setdefault(
+                code,
+                {
+                    "code": code,
+                    "name": row.get("country_name"),
+                    "flag": row.get("country_flag"),
+                    "count": 0,
+                },
+            )
+            item["count"] = int(item["count"]) + 1
+
+        items = sorted(
+            counts.values(),
+            key=lambda item: (
+                -int(item["count"]),
+                str(item["name"] or item["code"]),
+            ),
+        )
+
+        return {
+            "items": items,
+            "has_phone": has_phone,
+        }
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Could not load countries: {exc}",
         ) from exc
