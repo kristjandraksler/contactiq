@@ -161,27 +161,126 @@ def _country_from_text(text: str) -> tuple[str | None, int]:
     return best_code, min(90, 70 + best_score)
 
 
-def detect_country(
+
+def detect_phone_country(
+    phone: str | None,
+) -> CountryResult:
+    """
+    Detect only the numbering-plan country of the selected phone.
+    This does not represent the company's country.
+    """
+    return _build_result(
+        _country_from_phone(phone),
+        100 if _country_from_phone(phone) else 0,
+        "phone" if _country_from_phone(phone) else "unknown",
+    )
+
+
+def detect_company_country(
     *,
     phone: str | None = None,
     website_or_domain: str | None = None,
     pages: list[Any] | None = None,
     allow_tld: bool = True,
 ) -> CountryResult:
-    phone_code = _country_from_phone(phone)
-    if phone_code:
-        return _build_result(phone_code, 100, "phone")
+    """
+    Detect the company/website country.
 
-    text_code, text_confidence = _country_from_text(_page_text(pages))
+    Priority:
+    1. Country evidence in page text.
+    2. Country-code TLD.
+    3. Phone country only as a last-resort fallback.
+
+    This prevents a foreign support number from changing the company's
+    country, for example a .ba company using a +386 service number.
+    """
+    text_code, text_confidence = _country_from_text(
+        _page_text(pages)
+    )
     if text_code:
-        return _build_result(text_code, text_confidence, "page_text")
+        return _build_result(
+            text_code,
+            text_confidence,
+            "page_text",
+        )
 
     if allow_tld:
-        tld_code = _country_from_tld(website_or_domain)
+        tld_code = _country_from_tld(
+            website_or_domain
+        )
         if tld_code:
-            return _build_result(tld_code, 70, "tld")
+            return _build_result(
+                tld_code,
+                85,
+                "tld",
+            )
 
-    return _build_result(None, 0, "unknown")
+    phone_code = _country_from_phone(phone)
+    if phone_code:
+        return _build_result(
+            phone_code,
+            55,
+            "phone_fallback",
+        )
+
+    return _build_result(
+        None,
+        0,
+        "unknown",
+    )
+
+
+def phone_country_payload(
+    result: CountryResult,
+) -> dict[str, Any]:
+    return {
+        "phone_country_code": result.code,
+        "phone_country_name": result.name,
+        "phone_country_flag": result.flag,
+        "phone_country_confidence": result.confidence,
+    }
+
+
+def country_mismatch_payload(
+    company_country: CountryResult,
+    phone_country: CountryResult,
+) -> dict[str, Any]:
+    mismatch = bool(
+        company_country.code
+        and phone_country.code
+        and company_country.code != phone_country.code
+    )
+
+    return {
+        "country_mismatch": mismatch,
+        "is_cross_border": mismatch,
+    }
+
+def detect_country(
+    *,
+    phone: str | None = None,
+    website_or_domain: str | None = None,
+    pages: list[Any] | None = None,
+    allow_tld: bool = True,
+    entity: str = "company",
+) -> CountryResult:
+    """
+    Backward-compatible entry point.
+
+    entity="company" uses page text/TLD first.
+    entity="person" uses the selected phone first.
+    """
+    if entity == "person":
+        phone_result = detect_phone_country(phone)
+        if phone_result.code:
+            return phone_result
+
+    return detect_company_country(
+        phone=phone,
+        website_or_domain=website_or_domain,
+        pages=pages,
+        allow_tld=allow_tld,
+    )
 
 
 def country_payload(result: CountryResult) -> dict[str, Any]:

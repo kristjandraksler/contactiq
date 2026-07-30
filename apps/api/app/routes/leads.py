@@ -90,21 +90,10 @@ def list_leads(
             "NOT_FOUND, FAILED ali PUBLIC_EMAIL."
         ),
     ),
-    country: str | None = Query(
-        default=None,
-        min_length=2,
-        max_length=2,
-        description="ISO2 koda države, npr. SI, HR ali DE.",
-    ),
 ) -> dict[str, object]:
     try:
         supabase = get_supabase()
         normalized_status = normalize_status(status)
-        normalized_country = (
-            country.strip().upper()
-            if country
-            else None
-        )
 
         offset = (page - 1) * page_size
         range_end = offset + page_size - 1
@@ -119,9 +108,6 @@ def list_leads(
                     "website,"
                     "phone,"
                     "confidence,"
-                    "country_code,"
-                    "country_name,"
-                    "country_flag,"
                     "source_url,"
                     "pages_scanned,"
                     "scan_attempts,"
@@ -129,13 +115,7 @@ def list_leads(
                     "last_scan,"
                     "status,"
                     "created_at,"
-                    "updated_at,"
-                    "country_code,"
-                    "country_name,"
-                    "country_flag,"
-                    "country_confidence,"
-                    "country_source,"
-                    "person_match_type"
+                    "updated_at"
                 ),
                 count="exact",
             )
@@ -145,12 +125,6 @@ def list_leads(
             query = query.eq(
                 "status",
                 normalized_status,
-            )
-
-        if normalized_country:
-            query = query.eq(
-                "country_code",
-                normalized_country,
             )
 
         if has_phone is True:
@@ -220,7 +194,6 @@ def list_leads(
                 "has_phone": has_phone,
                 "confidence_min": confidence_min,
                 "status": normalized_status,
-                "country": normalized_country,
             },
         }
 
@@ -257,21 +230,10 @@ def export_leads_csv(
         default=None,
         description="Filter po statusu.",
     ),
-    country: str | None = Query(
-        default=None,
-        min_length=2,
-        max_length=2,
-        description="ISO2 koda države.",
-    ),
 ):
     try:
         supabase = get_supabase()
         normalized_status = normalize_status(status)
-        normalized_country = (
-            country.strip().upper()
-            if country
-            else None
-        )
 
         query = (
             supabase.table("email_targets")
@@ -294,12 +256,6 @@ def export_leads_csv(
             query = query.eq(
                 "status",
                 normalized_status,
-            )
-
-        if normalized_country:
-            query = query.eq(
-                "country_code",
-                normalized_country,
             )
 
         if has_phone is True:
@@ -350,8 +306,6 @@ def export_leads_csv(
             [
                 "Telefon",
                 "E-mail",
-                "Država",
-                "Koda države",
                 "Domena",
                 "Spletna stran",
                 "Confidence",
@@ -366,8 +320,6 @@ def export_leads_csv(
                 [
                     lead.get("phone") or "",
                     lead.get("email") or "",
-                    lead.get("country_name") or "",
-                    lead.get("country_code") or "",
                     lead.get("domain") or "",
                     lead.get("website") or "",
                     (

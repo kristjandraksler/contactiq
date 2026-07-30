@@ -12,7 +12,13 @@ from typing import Any
 
 from app.database import get_supabase
 from app.services.company_cache import save_company_result
-from app.services.country_detector import country_payload, detect_country
+from app.services.country_detector import (
+    country_mismatch_payload,
+    country_payload,
+    detect_company_country,
+    detect_phone_country,
+    phone_country_payload,
+)
 from app.services.person_matcher import find_person_phone_in_pages
 from app.services.person_search import search_public_mailbox_person
 from app.services.phone_finder import FinderResult, find_phone_from_pages
@@ -210,6 +216,7 @@ def _payload(
     company_id: str | None,
     attempts: int,
     country: Any,
+    phone_country: Any,
     person_match_type: str,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
@@ -220,6 +227,15 @@ def _payload(
         "status": result.status, "last_error": result.error,
     }
     payload.update(country_payload(country))
+    payload.update(
+        phone_country_payload(phone_country)
+    )
+    payload.update(
+        country_mismatch_payload(
+            country,
+            phone_country,
+        )
+    )
     payload["person_match_type"] = person_match_type
     if company_id:
         payload["company_id"] = company_id
@@ -285,6 +301,12 @@ async def process_job(job: DomainJob) -> None:
                         "country_source": "unknown",
                         "language_code": None,
                         "timezone_name": None,
+                        "phone_country_code": None,
+                        "phone_country_name": None,
+                        "phone_country_flag": None,
+                        "phone_country_confidence": 0,
+                        "country_mismatch": False,
+                        "is_cross_border": False,
                         "person_match_type": "public_email",
                         "company_id": None,
                     },
@@ -323,11 +345,15 @@ async def process_job(job: DomainJob) -> None:
             started_at=started_at,
         )
 
-        company_country = detect_country(
+        company_country = detect_company_country(
             phone=company_result.phone,
             website_or_domain=website or domain,
             pages=pages,
             allow_tld=True,
+        )
+
+        company_phone_country = detect_phone_country(
+            company_result.phone
         )
 
         company_id = await asyncio.to_thread(
@@ -335,6 +361,7 @@ async def process_job(job: DomainJob) -> None:
             domain,
             company_result,
             company_country,
+            company_phone_country,
         )
 
         person_matches = 0
@@ -425,11 +452,9 @@ async def process_job(job: DomainJob) -> None:
                         or 0
                     )
                     + 1,
-                    detect_country(
-                        phone=chosen.phone,
-                        website_or_domain=website or domain,
-                        pages=pages,
-                        allow_tld=True,
+                    company_country,
+                    detect_phone_country(
+                        chosen.phone
                     ),
                     (
                         "person_phone"
