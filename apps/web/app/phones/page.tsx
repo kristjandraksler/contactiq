@@ -35,6 +35,13 @@ type Lead = {
   country_flag?: string | null;
   country_confidence?: number | null;
   country_source?: string | null;
+  phone_country_code?: string | null;
+  phone_country_name?: string | null;
+  phone_country_flag?: string | null;
+  phone_country_confidence?: number | null;
+  country_mismatch?: boolean;
+  is_cross_border?: boolean;
+  person_match_type?: string | null;
 };
 
 type CountryOption = {
@@ -153,8 +160,12 @@ export default function PhonesPage() {
   const [confidenceMin, setConfidenceMin] =
     useState("");
 
-  const [country, setCountry] = useState("");
-  const [countries, setCountries] =
+  const [companyCountry, setCompanyCountry] = useState("");
+  const [phoneCountry, setPhoneCountry] = useState("");
+  const [mismatchOnly, setMismatchOnly] = useState(false);
+  const [companyCountries, setCompanyCountries] =
+    useState<CountryOption[]>([]);
+  const [phoneCountries, setPhoneCountries] =
     useState<CountryOption[]>([]);
 
   const [loading, setLoading] = useState(true);
@@ -182,8 +193,16 @@ export default function PhonesPage() {
         params.set("confidence_min", confidenceMin);
       }
 
-      if (country) {
-        params.set("country", country);
+      if (companyCountry) {
+        params.set("company_country", companyCountry);
+      }
+
+      if (phoneCountry) {
+        params.set("phone_country", phoneCountry);
+      }
+
+      if (mismatchOnly) {
+        params.set("country_mismatch", "true");
       }
 
       const response = await fetch(
@@ -218,7 +237,9 @@ export default function PhonesPage() {
   }, [
     activeSearch,
     confidenceMin,
-    country,
+    companyCountry,
+    phoneCountry,
+    mismatchOnly,
     page,
     pageSize,
   ]);
@@ -230,22 +251,33 @@ export default function PhonesPage() {
   useEffect(() => {
     async function loadCountries() {
       try {
-        const response = await fetch(
-          `${API_URL}/contacts/countries?has_phone=true`,
-          { cache: "no-store" },
-        );
+        const [companyResponse, phoneResponse] = await Promise.all([
+          fetch(
+            `${API_URL}/contacts/countries?field=company&has_phone=true`,
+            { cache: "no-store" },
+          ),
+          fetch(
+            `${API_URL}/contacts/countries?field=phone&has_phone=true`,
+            { cache: "no-store" },
+          ),
+        ]);
 
-        if (!response.ok) {
-          return;
+        if (companyResponse.ok) {
+          const data = (await companyResponse.json()) as {
+            items: CountryOption[];
+          };
+          setCompanyCountries(data.items);
         }
 
-        const data = (await response.json()) as {
-          items: CountryOption[];
-        };
-
-        setCountries(data.items);
+        if (phoneResponse.ok) {
+          const data = (await phoneResponse.json()) as {
+            items: CountryOption[];
+          };
+          setPhoneCountries(data.items);
+        }
       } catch {
-        setCountries([]);
+        setCompanyCountries([]);
+        setPhoneCountries([]);
       }
     }
 
@@ -264,7 +296,9 @@ export default function PhonesPage() {
     setSearchInput("");
     setActiveSearch("");
     setConfidenceMin("");
-    setCountry("");
+    setCompanyCountry("");
+    setPhoneCountry("");
+    setMismatchOnly(false);
     setPage(1);
   }
 
@@ -275,10 +309,17 @@ export default function PhonesPage() {
     setPage(1);
   }
 
-  function handleCountryChange(
+  function handleCompanyCountryChange(
     event: ChangeEvent<HTMLSelectElement>,
   ) {
-    setCountry(event.target.value);
+    setCompanyCountry(event.target.value);
+    setPage(1);
+  }
+
+  function handlePhoneCountryChange(
+    event: ChangeEvent<HTMLSelectElement>,
+  ) {
+    setPhoneCountry(event.target.value);
     setPage(1);
   }
 
@@ -302,8 +343,16 @@ export default function PhonesPage() {
       params.set("confidence_min", confidenceMin);
     }
 
-    if (country) {
-      params.set("country", country);
+    if (companyCountry) {
+      params.set("company_country", companyCountry);
+    }
+
+    if (phoneCountry) {
+      params.set("phone_country", phoneCountry);
+    }
+
+    if (mismatchOnly) {
+      params.set("country_mismatch", "true");
     }
 
     window.location.href =
@@ -421,22 +470,52 @@ export default function PhonesPage() {
             </select>
 
             <select
-              value={country}
-              onChange={handleCountryChange}
-              aria-label="Filtriraj po državi"
+              value={companyCountry}
+              onChange={handleCompanyCountryChange}
+              aria-label="Filtriraj po državi podjetja"
             >
-              <option value="">Vse države</option>
+              <option value="">Vse države podjetij</option>
 
-              {countries.map((item) => (
-                <option
-                  key={item.code}
-                  value={item.code}
-                >
+              {companyCountries.map((item) => (
+                <option key={item.code} value={item.code}>
                   {item.flag ?? "🌍"}{" "}
                   {item.name ?? item.code} ({item.count})
                 </option>
               ))}
             </select>
+
+            <select
+              value={phoneCountry}
+              onChange={handlePhoneCountryChange}
+              aria-label="Filtriraj po državi telefona"
+            >
+              <option value="">Vse države telefonov</option>
+
+              {phoneCountries.map((item) => (
+                <option key={item.code} value={item.code}>
+                  {item.flag ?? "☎"}{" "}
+                  {item.name ?? item.code} ({item.count})
+                </option>
+              ))}
+            </select>
+
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={mismatchOnly}
+                onChange={(event) => {
+                  setMismatchOnly(event.target.checked);
+                  setPage(1);
+                }}
+              />
+              Samo cross-border
+            </label>
 
             <button type="submit" disabled={loading}>
               Išči
@@ -444,7 +523,9 @@ export default function PhonesPage() {
 
             {(activeSearch ||
               confidenceMin ||
-              country) && (
+              companyCountry ||
+              phoneCountry ||
+              mismatchOnly) && (
               <button
                 type="button"
                 className="ghostButton"
@@ -492,7 +573,9 @@ export default function PhonesPage() {
 
             {(activeSearch ||
               confidenceMin ||
-              country) && (
+              companyCountry ||
+              phoneCountry ||
+              mismatchOnly) && (
               <button
                 type="button"
                 className="secondaryButton"
@@ -511,7 +594,8 @@ export default function PhonesPage() {
                     <th>Telefon</th>
                     <th>E-mail</th>
                     <th>Domena</th>
-                    <th>Država</th>
+                    <th>Država podjetja</th>
+                    <th>Država telefona</th>
                     <th>Confidence</th>
                     <th>Status</th>
                     <th>Vir</th>
@@ -574,6 +658,19 @@ export default function PhonesPage() {
                             {lead.country_flag ?? "🌍"}{" "}
                             {lead.country_name ??
                               lead.country_code}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+
+                      <td>
+                        {lead.phone_country_code ? (
+                          <span>
+                            {lead.phone_country_flag ?? "☎"}{" "}
+                            {lead.phone_country_name ??
+                              lead.phone_country_code}
+                            {lead.country_mismatch ? " ⚠" : ""}
                           </span>
                         ) : (
                           "—"

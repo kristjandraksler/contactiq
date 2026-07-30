@@ -52,6 +52,12 @@ type GeoContact = Contact & {
   country_confidence?: number | null;
   country_source?: string | null;
   person_match_type?: string | null;
+  phone_country_code?: string | null;
+  phone_country_name?: string | null;
+  phone_country_flag?: string | null;
+  phone_country_confidence?: number | null;
+  country_mismatch?: boolean;
+  is_cross_border?: boolean;
 };
 
 export default function ContactsPage() {
@@ -73,8 +79,11 @@ export default function ContactsPage() {
   const [searchInput, setSearchInput] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
   const [status, setStatus] = useState("");
-  const [country, setCountry] = useState("");
-  const [countries, setCountries] = useState<CountryOption[]>([]);
+  const [companyCountry, setCompanyCountry] = useState("");
+  const [phoneCountry, setPhoneCountry] = useState("");
+  const [companyCountries, setCompanyCountries] = useState<CountryOption[]>([]);
+  const [phoneCountries, setPhoneCountries] = useState<CountryOption[]>([]);
+  const [mismatchOnly, setMismatchOnly] = useState(false);
   const [page, setPage] = useState(1);
 
   const [loading, setLoading] = useState(true);
@@ -117,8 +126,16 @@ export default function ContactsPage() {
         params.set("status", status);
       }
 
-      if (country) {
-        params.set("country", country);
+      if (companyCountry) {
+        params.set("company_country", companyCountry);
+      }
+
+      if (phoneCountry) {
+        params.set("phone_country", phoneCountry);
+      }
+
+      if (mismatchOnly) {
+        params.set("country_mismatch", "true");
       }
 
       const response = await fetch(
@@ -159,7 +176,7 @@ export default function ContactsPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeSearch, country, page, pageSize, status]);
+  }, [activeSearch, companyCountry, phoneCountry, mismatchOnly, page, pageSize, status]);
 
   useEffect(() => {
     void loadContacts();
@@ -168,20 +185,31 @@ export default function ContactsPage() {
   useEffect(() => {
     async function loadCountries() {
       try {
-        const response = await fetch(
-          `${API_URL}/contacts/countries`,
-          { cache: "no-store" },
-        );
+        const [companyResponse, phoneResponse] = await Promise.all([
+          fetch(`${API_URL}/contacts/countries?field=company`, {
+            cache: "no-store",
+          }),
+          fetch(`${API_URL}/contacts/countries?field=phone&has_phone=true`, {
+            cache: "no-store",
+          }),
+        ]);
 
-        if (!response.ok) return;
+        if (companyResponse.ok) {
+          const data = (await companyResponse.json()) as {
+            items: CountryOption[];
+          };
+          setCompanyCountries(data.items);
+        }
 
-        const data = (await response.json()) as {
-          items: CountryOption[];
-        };
-
-        setCountries(data.items);
+        if (phoneResponse.ok) {
+          const data = (await phoneResponse.json()) as {
+            items: CountryOption[];
+          };
+          setPhoneCountries(data.items);
+        }
       } catch {
-        setCountries([]);
+        setCompanyCountries([]);
+        setPhoneCountries([]);
       }
     }
 
@@ -238,7 +266,9 @@ export default function ContactsPage() {
     setSearchInput("");
     setActiveSearch("");
     setStatus("");
-    setCountry("");
+    setCompanyCountry("");
+    setPhoneCountry("");
+    setMismatchOnly(false);
     setPage(1);
     setNotice(null);
     setSelectedIds([]);
@@ -253,10 +283,19 @@ export default function ContactsPage() {
     setSelectedIds([]);
   }
 
-  function handleCountryChange(
+  function handleCompanyCountryChange(
     event: ChangeEvent<HTMLSelectElement>,
   ) {
-    setCountry(event.target.value);
+    setCompanyCountry(event.target.value);
+    setPage(1);
+    setNotice(null);
+    setSelectedIds([]);
+  }
+
+  function handlePhoneCountryChange(
+    event: ChangeEvent<HTMLSelectElement>,
+  ) {
+    setPhoneCountry(event.target.value);
     setPage(1);
     setNotice(null);
     setSelectedIds([]);
@@ -815,18 +854,50 @@ export default function ContactsPage() {
             </select>
 
             <select
-              value={country}
-              onChange={handleCountryChange}
-              aria-label="Filtriraj po državi"
+              value={companyCountry}
+              onChange={handleCompanyCountryChange}
+              aria-label="Filtriraj po državi podjetja"
             >
-              <option value="">Vse države</option>
-              {countries.map((item) => (
+              <option value="">Vse države podjetij</option>
+              {companyCountries.map((item) => (
                 <option key={item.code} value={item.code}>
                   {item.flag ?? "🌍"}{" "}
                   {item.name ?? item.code} ({item.count})
                 </option>
               ))}
             </select>
+
+            <select
+              value={phoneCountry}
+              onChange={handlePhoneCountryChange}
+              aria-label="Filtriraj po državi telefona"
+            >
+              <option value="">Vse države telefonov</option>
+              {phoneCountries.map((item) => (
+                <option key={item.code} value={item.code}>
+                  {item.flag ?? "☎"}{" "}
+                  {item.name ?? item.code} ({item.count})
+                </option>
+              ))}
+            </select>
+
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={mismatchOnly}
+                onChange={(event) => {
+                  setMismatchOnly(event.target.checked);
+                  setPage(1);
+                }}
+              />
+              Samo cross-border
+            </label>
 
             <button
               type="submit"
@@ -835,7 +906,7 @@ export default function ContactsPage() {
               Išči
             </button>
 
-            {(activeSearch || status || country) && (
+            {(activeSearch || status || companyCountry || phoneCountry || mismatchOnly) && (
               <button
                 type="button"
                 className="ghostButton"
@@ -929,7 +1000,7 @@ export default function ContactsPage() {
               kontaktov.
             </p>
 
-            {(activeSearch || status || country) && (
+            {(activeSearch || status || companyCountry || phoneCountry || mismatchOnly) && (
               <button
                 type="button"
                 className="secondaryButton"
@@ -973,7 +1044,8 @@ export default function ContactsPage() {
 
                     <th>E-mail</th>
                     <th>Domena</th>
-                    <th>Država</th>
+                    <th>Država podjetja</th>
+                    <th>Država telefona</th>
                     <th>Telefon</th>
                     <th>Status</th>
                     <th>Confidence</th>
@@ -1062,6 +1134,22 @@ export default function ContactsPage() {
                               >
                                 {geo.country_flag ?? "🌍"}{" "}
                                 {geo.country_code}
+                              </span>
+                            ) : (
+                              "—"
+                            );
+                          })()}
+                        </td>
+
+                        <td>
+                          {(() => {
+                            const geo = contact as GeoContact;
+
+                            return geo.phone_country_code ? (
+                              <span>
+                                {geo.phone_country_flag ?? "☎"}{" "}
+                                {geo.phone_country_code}
+                                {geo.country_mismatch ? " ⚠" : ""}
                               </span>
                             ) : (
                               "—"

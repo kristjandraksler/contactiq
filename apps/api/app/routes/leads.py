@@ -5,6 +5,13 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
 from app.database import get_supabase
+from app.routes.contacts import (
+    ALLOWED_PERSON_MATCH_TYPES,
+    ALLOWED_SORT_FIELDS,
+    ALLOWED_STATUSES,
+    _apply_common_filters,
+    _normalize_code,
+)
 
 
 router = APIRouter(
@@ -12,99 +19,102 @@ router = APIRouter(
 )
 
 
-ALLOWED_STATUSES = {
-    "NEW",
-    "MATCHED",
-    "PARTIAL_MATCH",
-    "NOT_FOUND",
-    "FAILED",
-    "PUBLIC_EMAIL",
-}
-
-
-def normalize_status(status: str | None) -> str | None:
-    normalized_status = (
-        status.strip().upper()
-        if status
+def _normalized_filters(
+    *,
+    status: str | None,
+    country: str | None,
+    company_country: str | None,
+    phone_country: str | None,
+    person_match_type: str | None,
+) -> tuple[str | None, str | None, str | None, str | None]:
+    normalized_status = status.strip().upper() if status else None
+    normalized_company_country = _normalize_code(
+        company_country or country
+    )
+    normalized_phone_country = _normalize_code(phone_country)
+    normalized_person_match_type = (
+        person_match_type.strip().lower()
+        if person_match_type
         else None
     )
 
+    if normalized_status and normalized_status not in ALLOWED_STATUSES:
+        raise HTTPException(status_code=400, detail="Neveljaven status.")
+
     if (
-        normalized_status
-        and normalized_status not in ALLOWED_STATUSES
+        normalized_person_match_type
+        and normalized_person_match_type not in ALLOWED_PERSON_MATCH_TYPES
     ):
         raise HTTPException(
             status_code=400,
-            detail=(
-                "Neveljaven status. Dovoljeni statusi so: "
-                "NEW, MATCHED, PARTIAL_MATCH, NOT_FOUND, FAILED, PUBLIC_EMAIL."
-            ),
+            detail="Neveljaven person_match_type.",
         )
 
-    return normalized_status
-
-
-def sanitize_search(search: str) -> str:
     return (
-        search.strip()
-        .replace(",", "")
-        .replace("(", "")
-        .replace(")", "")
+        normalized_status,
+        normalized_company_country,
+        normalized_phone_country,
+        normalized_person_match_type,
     )
 
 
 @router.get("/leads")
 def list_leads(
-    page: int = Query(
-        default=1,
-        ge=1,
-        description="Številka strani.",
-    ),
-    page_size: int = Query(
-        default=25,
-        ge=1,
-        le=250,
-        description="Število zapisov na stran.",
-    ),
-    search: str | None = Query(
-        default=None,
-        description="Iskanje po emailu, domeni ali telefonu.",
-    ),
-    has_phone: bool | None = Query(
-        default=None,
-        description=(
-            "Če je true, vrne samo kontakte "
-            "z najdenim telefonom."
-        ),
-    ),
-    confidence_min: float | None = Query(
-        default=None,
-        ge=0,
-        le=100,
-        description="Najnižji dovoljeni confidence.",
-    ),
-    status: str | None = Query(
-        default=None,
-        description=(
-            "Filter po statusu: NEW, MATCHED, PARTIAL_MATCH, "
-            "NOT_FOUND, FAILED ali PUBLIC_EMAIL."
-        ),
-    ),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=25, ge=1, le=250),
+    search: str | None = Query(default=None),
+    has_phone: bool | None = Query(default=None),
+    confidence_min: float | None = Query(default=None, ge=0, le=100),
+    confidence_max: float | None = Query(default=None, ge=0, le=100),
+    status: str | None = Query(default=None),
     country: str | None = Query(
         default=None,
         min_length=2,
         max_length=2,
-        description="ISO2 koda države, npr. SI, HR ali DE.",
     ),
+    company_country: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=2,
+    ),
+    phone_country: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=2,
+    ),
+    country_mismatch: bool | None = Query(default=None),
+    person_match_type: str | None = Query(default=None),
+    sort_by: str = Query(default="created_at"),
+    sort_direction: str = Query(default="desc"),
 ) -> dict[str, object]:
     try:
         supabase = get_supabase()
-        normalized_status = normalize_status(status)
-        normalized_country = (
-            country.strip().upper()
-            if country
-            else None
+
+        (
+            normalized_status,
+            normalized_company_country,
+            normalized_phone_country,
+            normalized_person_match_type,
+        ) = _normalized_filters(
+            status=status,
+            country=country,
+            company_country=company_country,
+            phone_country=phone_country,
+            person_match_type=person_match_type,
         )
+
+        if sort_by not in ALLOWED_SORT_FIELDS:
+            raise HTTPException(
+                status_code=400,
+                detail="Neveljavno polje za sortiranje.",
+            )
+
+        normalized_sort_direction = sort_direction.strip().lower()
+        if normalized_sort_direction not in {"asc", "desc"}:
+            raise HTTPException(
+                status_code=400,
+                detail="sort_direction mora biti asc ali desc.",
+            )
 
         offset = (page - 1) * page_size
         range_end = offset + page_size - 1
@@ -113,98 +123,42 @@ def list_leads(
             supabase.table("email_targets")
             .select(
                 (
-                    "id,"
-                    "email,"
-                    "domain,"
-                    "website,"
-                    "phone,"
-                    "confidence,"
-                    "country_code,"
-                    "country_name,"
-                    "country_flag,"
-                    "phone_country_code,"
-                    "phone_country_name,"
-                    "phone_country_flag,"
-                    "country_mismatch,"
-                    "source_url,"
-                    "pages_scanned,"
-                    "scan_attempts,"
-                    "scan_duration_ms,"
-                    "last_scan,"
-                    "status,"
-                    "created_at,"
-                    "updated_at,"
-                    "country_code,"
-                    "country_name,"
-                    "country_flag,"
-                    "country_confidence,"
-                    "country_source,"
-                    "phone_country_code,"
-                    "phone_country_name,"
-                    "phone_country_flag,"
-                    "phone_country_confidence,"
-                    "country_mismatch,"
-                    "is_cross_border,"
+                    "id,email,domain,website,phone,confidence,source_url,"
+                    "pages_scanned,scan_attempts,scan_duration_ms,last_scan,"
+                    "status,created_at,updated_at,country_code,country_name,"
+                    "country_flag,country_confidence,country_source,"
+                    "phone_country_code,phone_country_name,phone_country_flag,"
+                    "phone_country_confidence,country_mismatch,is_cross_border,"
                     "person_match_type"
                 ),
                 count="exact",
             )
         )
 
-        if normalized_status:
-            query = query.eq(
-                "status",
-                normalized_status,
-            )
-
-        if normalized_country:
-            query = query.eq(
-                "country_code",
-                normalized_country,
-            )
-
-        if has_phone is True:
-            query = query.not_.is_(
-                "phone",
-                "null",
-            )
-
-        if has_phone is False:
-            query = query.is_(
-                "phone",
-                "null",
-            )
-
-        if confidence_min is not None:
-            query = query.gte(
-                "confidence",
-                confidence_min,
-            )
-
-        if search and search.strip():
-            safe_search = sanitize_search(search)
-
-            query = query.or_(
-                f"email.ilike.%{safe_search}%,"
-                f"domain.ilike.%{safe_search}%,"
-                f"phone.ilike.%{safe_search}%"
-            )
+        query = _apply_common_filters(
+            query,
+            search=search,
+            status=normalized_status,
+            company_country=normalized_company_country,
+            phone_country=normalized_phone_country,
+            has_phone=has_phone,
+            confidence_min=confidence_min,
+            confidence_max=confidence_max,
+            country_mismatch=country_mismatch,
+            person_match_type=normalized_person_match_type,
+        )
 
         response = (
             query
             .order(
-                "created_at",
-                desc=True,
+                sort_by,
+                desc=normalized_sort_direction == "desc",
             )
-            .range(
-                offset,
-                range_end,
-            )
+            .range(offset, range_end)
             .execute()
         )
 
         total = response.count or 0
-
         total_pages = (
             (total + page_size - 1) // page_size
             if total > 0
@@ -222,21 +176,22 @@ def list_leads(
                 "has_next": page < total_pages,
             },
             "filters": {
-                "search": (
-                    search.strip()
-                    if search
-                    else None
-                ),
+                "search": search.strip() if search else None,
                 "has_phone": has_phone,
                 "confidence_min": confidence_min,
+                "confidence_max": confidence_max,
                 "status": normalized_status,
-                "country": normalized_country,
+                "company_country": normalized_company_country,
+                "phone_country": normalized_phone_country,
+                "country_mismatch": country_mismatch,
+                "person_match_type": normalized_person_match_type,
+                "sort_by": sort_by,
+                "sort_direction": normalized_sort_direction,
             },
         }
 
     except HTTPException:
         raise
-
     except Exception as exc:
         raise HTTPException(
             status_code=500,
@@ -246,124 +201,84 @@ def list_leads(
 
 @router.get("/leads/export/csv")
 def export_leads_csv(
-    search: str | None = Query(
-        default=None,
-        description="Iskanje po emailu, domeni ali telefonu.",
-    ),
-    has_phone: bool | None = Query(
-        default=None,
-        description=(
-            "Če je true, izvozi samo kontakte "
-            "s telefonom."
-        ),
-    ),
-    confidence_min: float | None = Query(
-        default=None,
-        ge=0,
-        le=100,
-        description="Najnižji dovoljeni confidence.",
-    ),
-    status: str | None = Query(
-        default=None,
-        description="Filter po statusu.",
-    ),
-    country: str | None = Query(
+    search: str | None = Query(default=None),
+    has_phone: bool | None = Query(default=None),
+    confidence_min: float | None = Query(default=None, ge=0, le=100),
+    confidence_max: float | None = Query(default=None, ge=0, le=100),
+    status: str | None = Query(default=None),
+    country: str | None = Query(default=None, min_length=2, max_length=2),
+    company_country: str | None = Query(
         default=None,
         min_length=2,
         max_length=2,
-        description="ISO2 koda države.",
     ),
+    phone_country: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=2,
+    ),
+    country_mismatch: bool | None = Query(default=None),
+    person_match_type: str | None = Query(default=None),
 ):
     try:
         supabase = get_supabase()
-        normalized_status = normalize_status(status)
-        normalized_country = (
-            country.strip().upper()
-            if country
-            else None
+
+        (
+            normalized_status,
+            normalized_company_country,
+            normalized_phone_country,
+            normalized_person_match_type,
+        ) = _normalized_filters(
+            status=status,
+            country=country,
+            company_country=company_country,
+            phone_country=phone_country,
+            person_match_type=person_match_type,
         )
 
         query = (
             supabase.table("email_targets")
             .select(
                 (
-                    "email,"
-                    "domain,"
-                    "website,"
-                    "phone,"
-                    "confidence,"
-                    "source_url,"
-                    "status,"
-                    "last_scan,"
-                    "created_at"
+                    "email,domain,website,phone,confidence,source_url,status,"
+                    "last_scan,country_code,country_name,country_flag,"
+                    "phone_country_code,phone_country_name,phone_country_flag,"
+                    "country_mismatch,person_match_type"
                 )
             )
         )
 
-        if normalized_status:
-            query = query.eq(
-                "status",
-                normalized_status,
-            )
-
-        if normalized_country:
-            query = query.eq(
-                "country_code",
-                normalized_country,
-            )
-
-        if has_phone is True:
-            query = query.not_.is_(
-                "phone",
-                "null",
-            )
-
-        if has_phone is False:
-            query = query.is_(
-                "phone",
-                "null",
-            )
-
-        if confidence_min is not None:
-            query = query.gte(
-                "confidence",
-                confidence_min,
-            )
-
-        if search and search.strip():
-            safe_search = sanitize_search(search)
-
-            query = query.or_(
-                f"email.ilike.%{safe_search}%,"
-                f"domain.ilike.%{safe_search}%,"
-                f"phone.ilike.%{safe_search}%"
-            )
-
-        response = (
-            query
-            .order(
-                "created_at",
-                desc=True,
-            )
-            .execute()
+        query = _apply_common_filters(
+            query,
+            search=search,
+            status=normalized_status,
+            company_country=normalized_company_country,
+            phone_country=normalized_phone_country,
+            has_phone=has_phone,
+            confidence_min=confidence_min,
+            confidence_max=confidence_max,
+            country_mismatch=country_mismatch,
+            person_match_type=normalized_person_match_type,
         )
+
+        response = query.order("created_at", desc=True).execute()
 
         output = io.StringIO()
         output.write("\ufeff")
-
-        writer = csv.writer(
-            output,
-            delimiter=";",
-        )
+        writer = csv.writer(output, delimiter=";")
 
         writer.writerow(
             [
                 "Telefon",
                 "E-mail",
-                "Država",
-                "Koda države",
                 "Domena",
                 "Spletna stran",
+                "Država podjetja",
+                "Koda države podjetja",
+                "Država telefona",
+                "Koda države telefona",
+                "Cross-border",
+                "Tip zadetka",
                 "Confidence",
                 "Status",
                 "Vir",
@@ -376,10 +291,14 @@ def export_leads_csv(
                 [
                     lead.get("phone") or "",
                     lead.get("email") or "",
-                    lead.get("country_name") or "",
-                    lead.get("country_code") or "",
                     lead.get("domain") or "",
                     lead.get("website") or "",
+                    lead.get("country_name") or "",
+                    lead.get("country_code") or "",
+                    lead.get("phone_country_name") or "",
+                    lead.get("phone_country_code") or "",
+                    "DA" if lead.get("country_mismatch") else "NE",
+                    lead.get("person_match_type") or "",
                     (
                         lead.get("confidence")
                         if lead.get("confidence") is not None
@@ -406,7 +325,6 @@ def export_leads_csv(
 
     except HTTPException:
         raise
-
     except Exception as exc:
         raise HTTPException(
             status_code=500,
