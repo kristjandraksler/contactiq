@@ -17,6 +17,7 @@ class CountryResult:
     source: str
     language_code: str | None
     timezone_name: str | None
+    evidence: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -176,60 +177,6 @@ def detect_phone_country(
     )
 
 
-def detect_company_country(
-    *,
-    phone: str | None = None,
-    website_or_domain: str | None = None,
-    pages: list[Any] | None = None,
-    allow_tld: bool = True,
-) -> CountryResult:
-    """
-    Detect the company/website country.
-
-    Priority:
-    1. Country evidence in page text.
-    2. Country-code TLD.
-    3. Phone country only as a last-resort fallback.
-
-    This prevents a foreign support number from changing the company's
-    country, for example a .ba company using a +386 service number.
-    """
-    text_code, text_confidence = _country_from_text(
-        _page_text(pages)
-    )
-    if text_code:
-        return _build_result(
-            text_code,
-            text_confidence,
-            "page_text",
-        )
-
-    if allow_tld:
-        tld_code = _country_from_tld(
-            website_or_domain
-        )
-        if tld_code:
-            return _build_result(
-                tld_code,
-                85,
-                "tld",
-            )
-
-    phone_code = _country_from_phone(phone)
-    if phone_code:
-        return _build_result(
-            phone_code,
-            55,
-            "phone_fallback",
-        )
-
-    return _build_result(
-        None,
-        0,
-        "unknown",
-    )
-
-
 def phone_country_payload(
     result: CountryResult,
 ) -> dict[str, Any]:
@@ -283,6 +230,170 @@ def detect_country(
     )
 
 
+LANG_TO_COUNTRY = {
+    "sl": "SI", "hr": "HR", "bs": "BA", "sr": "RS", "mk": "MK",
+    "de-at": "AT", "de-ch": "CH", "de-de": "DE",
+    "sk": "SK", "cs": "CZ", "pl": "PL", "hu": "HU",
+    "ro": "RO", "bg": "BG", "it": "IT", "fr": "FR",
+    "nl": "NL", "et": "EE", "es": "ES", "pt": "PT",
+}
+
+CURRENCY_SIGNALS = {
+    "BAM": "BA", "RSD": "RS", "PLN": "PL", "HUF": "HU",
+    "CZK": "CZ", "RON": "RO", "BGN": "BG", "CHF": "CH",
+}
+
+
+def _result_v5(
+    code: str | None,
+    confidence: int,
+    source: str,
+    evidence: list[str],
+) -> CountryResult:
+    if not code or code not in COUNTRIES:
+        return CountryResult(None, None, None, 0, "unknown", None, None, ())
+
+    data = COUNTRIES[code]
+    return CountryResult(
+        code=code,
+        name=data["name"],
+        flag=data["flag"],
+        confidence=max(0, min(confidence, 100)),
+        source=source,
+        language_code=data["language"],
+        timezone_name=data["timezone"],
+        evidence=tuple(dict.fromkeys(evidence)),
+    )
+
+
+def _locale_country(value: str | None) -> str | None:
+    normalized = (value or "").strip().lower().replace("_", "-")
+    if not normalized:
+        return None
+    if normalized in LANG_TO_COUNTRY:
+        return LANG_TO_COUNTRY[normalized]
+    if "-" in normalized:
+        region = normalized.rsplit("-", 1)[-1].upper()
+        if region in COUNTRIES:
+            return region
+    return LANG_TO_COUNTRY.get(normalized.split("-", 1)[0])
+
+
+def _json_ld_countries(pages: list[Any] | None) -> list[str]:
+    import json
+
+    found: list[str] = []
+
+    def walk(value: Any):
+        if isinstance(value, dict):
+            yield value
+            for child in value.values():
+                yield from walk(child)
+        elif isinstance(value, list):
+            for child in value:
+                yield from walk(child)
+
+    for page in pages or []:
+        for raw in getattr(page, "json_ld", ()) or ():
+            try:
+                parsed = json.loads(raw)
+            except Exception:
+                continue
+
+            for node in walk(parsed):
+                for key, value in node.items():
+                    normalized_key = str(key).replace("_", "").lower()
+                    if normalized_key not in {
+                        "addresscountry", "country", "countrycode"
+                    }:
+                        continue
+
+                    text = str(value).strip()
+                    upper = text.upper()
+                    if upper in COUNTRIES:
+                        found.append(upper)
+                        continue
+
+                    lowered = text.lower()
+                    for code, data in COUNTRIES.items():
+                        if lowered == data["name"].lower():
+                            found.append(code)
+
+    return found
+
+
+def detect_company_country(
+    *,
+    phone: str | None = None,
+    website_or_domain: str | None = None,
+    pages: list[Any] | None = None,
+    allow_tld: bool = True,
+) -> CountryResult:
+    scores: dict[str, int] = {}
+    evidence: dict[str, list[str]] = {}
+
+    def add(code: str | None, points: int, label: str) -> None:
+        if not code or code not in COUNTRIES:
+            return
+        scores[code] = scores.get(code, 0) + points
+        evidence.setdefault(code, []).append(label)
+
+    for code in _json_ld_countries(pages):
+        add(code, 45, f"schema_address:{code}")
+
+    for page in pages or []:
+        og_locale = getattr(page, "og_locale", None)
+        html_lang = getattr(page, "html_lang", None)
+
+        add(_locale_country(og_locale), 30, f"og_locale:{og_locale}")
+        add(_locale_country(html_lang), 20, f"html_lang:{html_lang}")
+
+        for hreflang in getattr(page, "hreflangs", ()) or ():
+            add(_locale_country(hreflang), 10, f"hreflang:{hreflang}")
+
+    text = _page_text(pages)
+
+    for code, markers in TEXT_SIGNALS.items():
+        occurrences = sum(min(text.count(marker), 3) for marker in markers)
+        if occurrences:
+            add(code, min(36, occurrences * 6), f"page_text:{code}")
+
+    for currency, code in CURRENCY_SIGNALS.items():
+        if re.search(rf"\b{re.escape(currency.lower())}\b", text):
+            add(code, 20, f"currency:{currency}")
+
+    if allow_tld:
+        tld_code = _country_from_tld(website_or_domain)
+        add(tld_code, 25, f"tld:{tld_code}")
+
+    phone_code = _country_from_phone(phone)
+    add(phone_code, 8, f"phone_fallback:{phone_code}")
+
+    if not scores:
+        return _result_v5(None, 0, "unknown", [])
+
+    ranked = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+    best_code, best_score = ranked[0]
+    second_score = ranked[1][1] if len(ranked) > 1 else 0
+    margin = best_score - second_score
+
+    confidence = min(
+        99,
+        max(55, 55 + best_score // 2 + min(margin, 20)),
+    )
+
+    best_evidence = evidence.get(best_code, [])
+    source = (
+        "combined"
+        if len(best_evidence) > 1
+        else best_evidence[0].split(":", 1)[0]
+        if best_evidence
+        else "unknown"
+    )
+
+    return _result_v5(best_code, confidence, source, best_evidence)
+
+
 def country_payload(result: CountryResult) -> dict[str, Any]:
     return {
         "country_code": result.code,
@@ -290,6 +401,8 @@ def country_payload(result: CountryResult) -> dict[str, Any]:
         "country_flag": result.flag,
         "country_confidence": result.confidence,
         "country_source": result.source,
+        "country_evidence": list(result.evidence),
         "language_code": result.language_code,
         "timezone_name": result.timezone_name,
     }
+

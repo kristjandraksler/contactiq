@@ -9,6 +9,7 @@ from app.routes.stats import router as stats_router
 from app.routes.leads import router as leads_router
 from app.routes.admin_worker import router as admin_worker_router
 from app.routes.public_providers import router as public_providers_router
+from app.services.providers import refresh_public_email_domains
 
 app = FastAPI(
     title="ContactIQ API",
@@ -35,6 +36,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+
+@app.on_event("startup")
+async def initialize_runtime_caches() -> None:
+    refresh_public_email_domains(force=True)
 
 @app.get("/")
 def root() -> dict[str, str]:

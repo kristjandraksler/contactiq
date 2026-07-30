@@ -299,6 +299,7 @@ async def process_job(job: DomainJob) -> None:
                         "country_flag": None,
                         "country_confidence": 0,
                         "country_source": "unknown",
+                        "country_evidence": [],
                         "language_code": None,
                         "timezone_name": None,
                         "phone_country_code": None,

@@ -43,6 +43,51 @@ USER_AGENT = "Mozilla/5.0 (compatible; ContactIQ/2.0; +public-business-contact-d
 class CrawledPage:
     url: str
     html: str
+    html_lang: str | None = None
+    og_locale: str | None = None
+    hreflangs: tuple[str, ...] = ()
+    json_ld: tuple[str, ...] = ()
+    title: str | None = None
+
+
+def _extract_page_metadata(html: str) -> dict[str, object]:
+    soup = BeautifulSoup(html, "html.parser")
+
+    html_tag = soup.find("html")
+    html_lang = None
+    if html_tag:
+        html_lang = str(
+            html_tag.get("lang")
+            or html_tag.get("xml:lang")
+            or ""
+        ).strip() or None
+
+    og_locale = None
+    og_tag = soup.find("meta", attrs={"property": "og:locale"})
+    if og_tag:
+        og_locale = str(og_tag.get("content") or "").strip() or None
+
+    hreflangs = tuple(
+        dict.fromkeys(
+            str(link.get("hreflang") or "").strip()
+            for link in soup.find_all("link", attrs={"hreflang": True})
+            if str(link.get("hreflang") or "").strip()
+        )
+    )
+
+    json_ld = []
+    for script in soup.find_all("script", attrs={"type": "application/ld+json"}):
+        content = script.string or script.get_text(" ", strip=True)
+        if content:
+            json_ld.append(str(content)[:30000])
+
+    return {
+        "html_lang": html_lang,
+        "og_locale": og_locale,
+        "hreflangs": hreflangs,
+        "json_ld": tuple(json_ld),
+        "title": soup.title.get_text(" ", strip=True) if soup.title else None,
+    }
 
 
 async def host_is_public(hostname: str) -> bool:
@@ -120,7 +165,16 @@ async def fetch_html(client: httpx.AsyncClient, url: str) -> CrawledPage | None:
     final_host = urlparse(final_url).hostname
     if not final_host or not await host_is_public(final_host):
         return None
-    return CrawledPage(final_url, response.text)
+    metadata = _extract_page_metadata(response.text)
+    return CrawledPage(
+        url=final_url,
+        html=response.text,
+        html_lang=metadata["html_lang"],
+        og_locale=metadata["og_locale"],
+        hreflangs=metadata["hreflangs"],
+        json_ld=metadata["json_ld"],
+        title=metadata["title"],
+    )
 
 
 async def resolve_website(client: httpx.AsyncClient, domain: str) -> CrawledPage | None:

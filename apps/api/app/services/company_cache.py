@@ -36,6 +36,7 @@ COMPANY_CACHE_FIELDS = (
     "country_flag,"
     "country_confidence,"
     "country_source,"
+    "country_evidence,"
     "language_code,"
     "timezone_name,"
     "phone_country_code,"
