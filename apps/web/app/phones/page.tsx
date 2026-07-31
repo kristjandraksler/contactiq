@@ -35,6 +35,7 @@ type Lead = {
   country_flag?: string | null;
   country_confidence?: number | null;
   country_source?: string | null;
+  country_evidence?: string[] | null;
   phone_country_code?: string | null;
   phone_country_name?: string | null;
   phone_country_flag?: string | null;
@@ -133,6 +134,303 @@ async function readErrorMessage(
   }
 
   return fallback;
+}
+
+
+type CountryIntelligenceProps = {
+  flag?: string | null;
+  name?: string | null;
+  code?: string | null;
+  confidence?: number | null;
+  source?: string | null;
+  evidence?: string[] | null;
+  compact?: boolean;
+};
+
+function getConfidenceMeta(value?: number | null) {
+  const confidence = value ?? 0;
+
+  if (confidence >= 90) {
+    return {
+      label: "VERY HIGH",
+      dot: "🟢",
+      background: "rgba(22, 163, 74, 0.12)",
+      border: "rgba(22, 163, 74, 0.28)",
+    };
+  }
+
+  if (confidence >= 75) {
+    return {
+      label: "HIGH",
+      dot: "🟢",
+      background: "rgba(34, 197, 94, 0.10)",
+      border: "rgba(34, 197, 94, 0.24)",
+    };
+  }
+
+  if (confidence >= 50) {
+    return {
+      label: "MEDIUM",
+      dot: "🟡",
+      background: "rgba(234, 179, 8, 0.12)",
+      border: "rgba(234, 179, 8, 0.28)",
+    };
+  }
+
+  return {
+    label: "LOW",
+    dot: "🔴",
+    background: "rgba(239, 68, 68, 0.10)",
+    border: "rgba(239, 68, 68, 0.24)",
+  };
+}
+
+function formatEvidence(value: string) {
+  const [kind, raw] = value.split(":", 2);
+
+  const labels: Record<string, string> = {
+    schema_address: "Schema.org naslov",
+    og_locale: "OpenGraph locale",
+    html_lang: "HTML jezik",
+    hreflang: "Hreflang",
+    page_text: "Besedilo strani",
+    currency: "Valuta",
+    tld: "Domena TLD",
+    phone_fallback: "Telefonska država",
+    phone: "Telefonska država",
+  };
+
+  return `${labels[kind] ?? kind}${raw ? ` · ${raw}` : ""}`;
+}
+
+function ConfidenceBadge({
+  value,
+}: {
+  value?: number | null;
+}) {
+  if (value === null || value === undefined) {
+    return <span className="muted">—</span>;
+  }
+
+  const meta = getConfidenceMeta(value);
+
+  return (
+    <span
+      title={`${meta.label} confidence`}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "6px",
+        padding: "5px 8px",
+        borderRadius: "999px",
+        background: meta.background,
+        border: `1px solid ${meta.border}`,
+        fontSize: "12px",
+        fontWeight: 700,
+        whiteSpace: "nowrap",
+      }}
+    >
+      <span>{meta.dot}</span>
+      <span>{meta.label}</span>
+      <span>{value}%</span>
+    </span>
+  );
+}
+
+function CountryIntelligence({
+  flag,
+  name,
+  code,
+  confidence,
+  source,
+  evidence,
+  compact = false,
+}: CountryIntelligenceProps) {
+  if (!code) {
+    return <span className="muted">—</span>;
+  }
+
+  const evidenceItems = evidence ?? [];
+
+  return (
+    <details
+      style={{
+        display: "inline-block",
+        position: "relative",
+      }}
+    >
+      <summary
+        title="Odpri Country Intelligence"
+        style={{
+          cursor: "pointer",
+          listStyle: "none",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "7px",
+          padding: compact ? "4px 6px" : "6px 8px",
+          borderRadius: "10px",
+          border: "1px solid rgba(148, 163, 184, 0.22)",
+          background: "rgba(148, 163, 184, 0.06)",
+          whiteSpace: "nowrap",
+        }}
+      >
+        <span>{flag ?? "🌍"}</span>
+        <strong>{compact ? code : name ?? code}</strong>
+        {confidence !== null && confidence !== undefined && (
+          <span className="muted" style={{ fontSize: "12px" }}>
+            {confidence}%
+          </span>
+        )}
+      </summary>
+
+      <div
+        style={{
+          position: "absolute",
+          zIndex: 30,
+          top: "calc(100% + 8px)",
+          left: 0,
+          width: "280px",
+          padding: "14px",
+          borderRadius: "14px",
+          border: "1px solid rgba(148, 163, 184, 0.25)",
+          background: "var(--panel, #ffffff)",
+          boxShadow: "0 18px 50px rgba(15, 23, 42, 0.18)",
+        }}
+      >
+        <p
+          style={{
+            margin: "0 0 10px",
+            fontSize: "12px",
+            fontWeight: 800,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+          }}
+        >
+          Country Intelligence
+        </p>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: "12px",
+            marginBottom: "12px",
+          }}
+        >
+          <div>
+            <div style={{ fontSize: "20px", marginBottom: "4px" }}>
+              {flag ?? "🌍"} {name ?? code}
+            </div>
+            <div className="muted" style={{ fontSize: "12px" }}>
+              Vir: {source ?? "unknown"}
+            </div>
+          </div>
+
+          <ConfidenceBadge value={confidence} />
+        </div>
+
+        <div
+          style={{
+            borderTop: "1px solid rgba(148, 163, 184, 0.18)",
+            paddingTop: "10px",
+          }}
+        >
+          <strong style={{ fontSize: "12px" }}>Evidence</strong>
+
+          {evidenceItems.length > 0 ? (
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "6px",
+                marginTop: "8px",
+              }}
+            >
+              {evidenceItems.map((item) => (
+                <span
+                  key={item}
+                  style={{
+                    padding: "5px 7px",
+                    borderRadius: "8px",
+                    background: "rgba(34, 197, 94, 0.10)",
+                    border: "1px solid rgba(34, 197, 94, 0.20)",
+                    fontSize: "11px",
+                  }}
+                >
+                  ✓ {formatEvidence(item)}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="muted" style={{ margin: "6px 0 0" }}>
+              Evidence še ni zapisano.
+            </p>
+          )}
+        </div>
+      </div>
+    </details>
+  );
+}
+
+function MatchTypeBadge({
+  type,
+}: {
+  type?: string | null;
+}) {
+  const map: Record<string, { label: string; icon: string }> = {
+    person_phone: { label: "PERSON", icon: "👤" },
+    company_phone: { label: "COMPANY", icon: "🏢" },
+    public_person: { label: "PUBLIC PERSON", icon: "👤" },
+    public_email: { label: "PUBLIC EMAIL", icon: "🟣" },
+    role_phone: { label: "DEPARTMENT", icon: "📞" },
+    none: { label: "NONE", icon: "—" },
+  };
+
+  const item = map[type ?? "none"] ?? {
+    label: type?.toUpperCase() ?? "NONE",
+    icon: "•",
+  };
+
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "5px",
+        padding: "4px 7px",
+        borderRadius: "999px",
+        background: "rgba(99, 102, 241, 0.08)",
+        border: "1px solid rgba(99, 102, 241, 0.18)",
+        fontSize: "11px",
+        fontWeight: 700,
+        whiteSpace: "nowrap",
+      }}
+    >
+      {item.icon} {item.label}
+    </span>
+  );
+}
+
+function CrossBorderBadge() {
+  return (
+    <span
+      title="Država podjetja in telefona se razlikujeta."
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "5px",
+        padding: "4px 7px",
+        borderRadius: "999px",
+        background: "rgba(245, 158, 11, 0.12)",
+        border: "1px solid rgba(245, 158, 11, 0.28)",
+        fontSize: "11px",
+        fontWeight: 800,
+        whiteSpace: "nowrap",
+      }}
+    >
+      🌍 CROSS-BORDER
+    </span>
+  );
 }
 
 export default function PhonesPage() {
@@ -597,6 +895,7 @@ export default function PhonesPage() {
                     <th>Država podjetja</th>
                     <th>Država telefona</th>
                     <th>Confidence</th>
+                    <th>Tip</th>
                     <th>Status</th>
                     <th>Vir</th>
                     <th>Zadnja obdelava</th>
@@ -642,35 +941,54 @@ export default function PhonesPage() {
                       </td>
 
                       <td>
-                        {lead.country_code ? (
-                          <span
-                            title={
-                              lead.country_source
-                                ? `Vir: ${lead.country_source}${
-                                    lead.country_confidence !== null &&
-                                    lead.country_confidence !== undefined
-                                      ? ` · ${lead.country_confidence}%`
-                                      : ""
-                                  }`
-                                : undefined
-                            }
-                          >
-                            {lead.country_flag ?? "🌍"}{" "}
-                            {lead.country_name ??
-                              lead.country_code}
-                          </span>
-                        ) : (
-                          "—"
-                        )}
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "7px",
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <CountryIntelligence
+                            flag={lead.country_flag}
+                            name={lead.country_name}
+                            code={lead.country_code}
+                            confidence={lead.country_confidence}
+                            source={lead.country_source}
+                            evidence={lead.country_evidence}
+                          />
+
+                          {lead.country_mismatch && (
+                            <CrossBorderBadge />
+                          )}
+                        </div>
                       </td>
 
                       <td>
                         {lead.phone_country_code ? (
-                          <span>
+                          <span
+                            title={
+                              lead.country_mismatch
+                                ? "Telefonska država se razlikuje od države podjetja."
+                                : "Telefonska država"
+                            }
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "6px",
+                              padding: "5px 7px",
+                              borderRadius: "9px",
+                              background: lead.country_mismatch
+                                ? "rgba(245, 158, 11, 0.10)"
+                                : "rgba(148, 163, 184, 0.06)",
+                              border: lead.country_mismatch
+                                ? "1px solid rgba(245, 158, 11, 0.24)"
+                                : "1px solid rgba(148, 163, 184, 0.18)",
+                            }}
+                          >
                             {lead.phone_country_flag ?? "☎"}{" "}
                             {lead.phone_country_name ??
                               lead.phone_country_code}
-                            {lead.country_mismatch ? " ⚠" : ""}
                           </span>
                         ) : (
                           "—"
@@ -678,9 +996,15 @@ export default function PhonesPage() {
                       </td>
 
                       <td>
-                        {getConfidenceLabel(
-                          lead.confidence,
-                        )}
+                        <ConfidenceBadge
+                          value={lead.confidence}
+                        />
+                      </td>
+
+                      <td>
+                        <MatchTypeBadge
+                          type={lead.person_match_type}
+                        />
                       </td>
 
                       <td>
