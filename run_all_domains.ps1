@@ -3,7 +3,8 @@
     [int]$BatchSize = 5,
     [int]$SleepSeconds = 3,
     [int]$StallMinutes = 10,
-    [int]$RequestTimeoutSeconds = 600
+    [int]$RequestTimeoutSeconds = 600,
+    [switch]$IncludePublicEmails
 )
 
 $ErrorActionPreference = "Stop"
@@ -59,7 +60,13 @@ function Format-TimeSpan {
 }
 
 Write-LogLine -Message "ContactIQ Worker v2 started." -Color "Cyan"
-Write-LogLine -Message ("BaseUrl=" + $BaseUrl + " BatchSize=" + $BatchSize + " StallMinutes=" + $StallMinutes + " Log=" + $LogFile) -Color "DarkGray"
+$Mode = if ($IncludePublicEmails) { "PUBLIC_EMAIL_RESEARCH" } else { "STANDARD" }
+
+Write-LogLine -Message ("BaseUrl=" + $BaseUrl + " BatchSize=" + $BatchSize + " StallMinutes=" + $StallMinutes + " Mode=" + $Mode + " Log=" + $LogFile) -Color "DarkGray"
+
+if ($IncludePublicEmails) {
+    Write-LogLine -Message "Research mode je vklopljen. Public providerji se pregledajo, vendar se sprejmejo samo person-specific zadetki." -Color "Yellow"
+}
 
 while ($true) {
     try {
@@ -123,6 +130,10 @@ while ($true) {
         }
 
         $RunPath = "/admin/worker/run?limit=" + $BatchSize
+
+        if ($IncludePublicEmails) {
+            $RunPath = $RunPath + "&include_public_emails=true"
+        }
         $Result = Invoke-Api -Method "Post" -Path $RunPath -TimeoutSeconds $RequestTimeoutSeconds
 
         $Claimed = 0

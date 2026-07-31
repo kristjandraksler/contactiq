@@ -241,7 +241,10 @@ def _payload(
         payload["company_id"] = company_id
     return payload
 
-async def process_job(job: DomainJob) -> None:
+async def process_job(
+    job: DomainJob,
+    include_public_emails: bool = False,
+) -> None:
     domain = clean_domain(job.domain)
 
     if not domain or "." not in domain:
@@ -267,7 +270,9 @@ async def process_job(job: DomainJob) -> None:
 
         # Public mailbox / ISP domains are not company websites.
         # They are classified immediately and never crawled or searched.
-        if is_public_email_domain(domain):
+        public_email_domain = is_public_email_domain(domain)
+
+        if public_email_domain and not include_public_emails:
             for contact in contacts:
                 attempts = (
                     int(contact.get("scan_attempts") or 0)
@@ -357,13 +362,16 @@ async def process_job(job: DomainJob) -> None:
             company_result.phone
         )
 
-        company_id = await asyncio.to_thread(
-            save_company_result,
-            domain,
-            company_result,
-            company_country,
-            company_phone_country,
-        )
+        company_id = None
+
+        if not public_email_domain:
+            company_id = await asyncio.to_thread(
+                save_company_result,
+                domain,
+                company_result,
+                company_country,
+                company_phone_country,
+            )
 
         person_matches = 0
 
@@ -437,8 +445,37 @@ async def process_job(job: DomainJob) -> None:
                         else "LOW"
                     ),
                 )
+            elif public_email_domain:
+                # Research mode must never assign Gmail/Outlook/provider
+                # company support numbers to individual mailbox owners.
+                chosen = FinderResult(
+                    status="NOT_FOUND",
+                    website=website,
+                    phone=None,
+                    confidence=None,
+                    source_url=None,
+                    pages_scanned=len(pages),
+                    scan_duration_ms=int(
+                        (
+                            time.perf_counter()
+                            - started_at
+                        )
+                        * 1000
+                    ),
+                    candidates=[],
+                    error=None,
+                    confidence_label="UNKNOWN",
+                )
             else:
                 chosen = company_result
+
+            contact_country = (
+                detect_phone_country(chosen.phone)
+                if public_email_domain and chosen.phone
+                else company_country
+                if not public_email_domain
+                else detect_phone_country(None)
+            )
 
             await asyncio.to_thread(
                 update_contact,
@@ -453,15 +490,23 @@ async def process_job(job: DomainJob) -> None:
                         or 0
                     )
                     + 1,
-                    company_country,
+                    contact_country,
                     detect_phone_country(
                         chosen.phone
                     ),
                     (
-                        "person_phone"
+                        "public_person"
+                        if (
+                            public_email_domain
+                            and person.matched
+                            and person.phone
+                        )
+                        else "person_phone"
                         if person.matched and person.phone
                         else "company_phone"
                         if chosen.status == "MATCHED"
+                        else "public_email"
+                        if public_email_domain
                         else "none"
                     ),
                 ),
@@ -494,12 +539,17 @@ async def process_job(job: DomainJob) -> None:
         logger.info(
             (
                 "domain=%s company_status=%s "
-                "contacts=%s person_matches=%s"
+                "contacts=%s person_matches=%s "
+                "public_email_research=%s"
             ),
             domain,
             company_result.status,
             len(contacts),
             person_matches,
+            bool(
+                public_email_domain
+                and include_public_emails
+            ),
         )
 
     except Exception as exc:
