@@ -126,7 +126,7 @@ def list_leads(
                     "id,email,domain,website,phone,confidence,source_url,"
                     "pages_scanned,scan_attempts,scan_duration_ms,last_scan,"
                     "status,created_at,updated_at,country_code,country_name,"
-                    "country_flag,country_confidence,country_source,"
+                    "country_flag,country_confidence,country_source,country_evidence,"
                     "phone_country_code,phone_country_name,phone_country_flag,"
                     "phone_country_confidence,country_mismatch,is_cross_border,"
                     "person_match_type"
@@ -241,7 +241,7 @@ def export_leads_csv(
             .select(
                 (
                     "email,domain,website,phone,confidence,source_url,status,"
-                    "last_scan,country_code,country_name,country_flag,"
+                    "last_scan,country_code,country_name,country_flag,country_evidence,"
                     "phone_country_code,phone_country_name,phone_country_flag,"
                     "country_mismatch,person_match_type"
                 )
