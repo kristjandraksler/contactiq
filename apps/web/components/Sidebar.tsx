@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+
 import { Icon } from "./ui/Icon";
 
 const primary = [
@@ -18,14 +19,29 @@ const secondary = [
   { href: "/settings", label: "Settings", icon: "settings" as const },
 ];
 
-type NavItemProps = { href: string; label: string; icon: Parameters<typeof Icon>[0]["name"] };
+type NavItemProps = {
+  href: string;
+  label: string;
+  icon: Parameters<typeof Icon>[0]["name"];
+};
 
-function NavItem({ href, label, icon }: NavItemProps) {
+function NavItem({
+  href,
+  label,
+  icon,
+}: NavItemProps) {
   const pathname = usePathname();
-  const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+
+  const active =
+    href === "/"
+      ? pathname === "/"
+      : pathname.startsWith(href);
 
   return (
-    <Link href={href} className={`v2NavItem ${active ? "active" : ""}`}>
+    <Link
+      href={href}
+      className={`v2NavItem ${active ? "active" : ""}`}
+    >
       <Icon name={icon} width={18} height={18} />
       <span>{label}</span>
     </Link>
@@ -38,18 +54,37 @@ export default function Sidebar() {
       <div className="v2SidebarHead">
         <Link href="/" className="v2Brand">
           <span className="v2BrandMark">CI</span>
+
           <span>
             Contact<strong>IQ</strong>
           </span>
         </Link>
-        <span className="v2Environment">Internal</span>
+
+        <span className="v2Environment">
+          Internal
+        </span>
       </div>
 
       <nav className="v2Nav">
         <p>Workspace</p>
-        {primary.map((item) => <NavItem key={item.href} {...item} />)}
-        <p className="v2NavSection">Manage</p>
-        {secondary.map((item) => <NavItem key={item.href} {...item} />)}
+
+        {primary.map((item) => (
+          <NavItem
+            key={item.href}
+            {...item}
+          />
+        ))}
+
+        <p className="v2NavSection">
+          Manage
+        </p>
+
+        {secondary.map((item) => (
+          <NavItem
+            key={item.href}
+            {...item}
+          />
+        ))}
       </nav>
 
       <div className="v2SidebarFooter">
@@ -58,12 +93,21 @@ export default function Sidebar() {
             <span>Database</span>
             <strong>Live</strong>
           </div>
-          <div className="v2UsageTrack"><span /></div>
-          <small>Contact intelligence workspace</small>
+
+          <div className="v2UsageTrack">
+            <span />
+          </div>
+
+          <small>
+            Contact intelligence workspace
+          </small>
         </div>
+
         <div className="v2Profile">
-          <span className="v2Avatar">KD</span>
-          <div><strong>Administrator</strong><small>ContactIQ workspace</small></div>
+          <div>
+            <strong>Administrator</strong>
+            <small>ContactIQ workspace</small>
+          </div>
         </div>
       </div>
     </aside>
