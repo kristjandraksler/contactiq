@@ -263,9 +263,20 @@ async def process_job(
     started_at = time.perf_counter()
 
     try:
+        logger.info(
+            "DOMAIN_STAGE domain=%s stage=load_contacts_start",
+            domain,
+        )
+
         contacts = await asyncio.to_thread(
             get_contacts_for_domain,
             domain,
+        )
+
+        logger.info(
+            "DOMAIN_STAGE domain=%s stage=load_contacts_end contacts=%s",
+            domain,
+            len(contacts),
         )
 
         # Public mailbox / ISP domains are not company websites.
@@ -339,9 +350,28 @@ async def process_job(
             )
             return
 
+        logger.info(
+            "DOMAIN_STAGE domain=%s stage=crawl_start max_pages=%s",
+            domain,
+            MAX_PAGES,
+        )
+
         website, pages = await crawl_company_website(
             domain,
             max_pages=MAX_PAGES,
+        )
+
+        logger.info(
+            "DOMAIN_STAGE domain=%s stage=crawl_end website=%s pages=%s elapsed_seconds=%.2f",
+            domain,
+            website,
+            len(pages),
+            time.perf_counter() - started_at,
+        )
+
+        logger.info(
+            "DOMAIN_STAGE domain=%s stage=company_phone_start",
+            domain,
         )
 
         company_result = find_phone_from_pages(
@@ -349,6 +379,13 @@ async def process_job(
             website=website,
             pages=pages,
             started_at=started_at,
+        )
+
+        logger.info(
+            "DOMAIN_STAGE domain=%s stage=company_phone_end status=%s phone=%s",
+            domain,
+            company_result.status,
+            bool(company_result.phone),
         )
 
         company_country = detect_company_country(
@@ -374,6 +411,12 @@ async def process_job(
             )
 
         person_matches = 0
+
+        logger.info(
+            "DOMAIN_STAGE domain=%s stage=contact_matching_start contacts=%s",
+            domain,
+            len(contacts),
+        )
 
         for contact in contacts:
             email = str(contact.get("email") or "")

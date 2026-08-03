@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+import time
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
 from app.database import get_supabase
 from app.workers.domain_worker import claim_jobs, process_job, seed_jobs
+
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(
@@ -86,6 +91,52 @@ def _read_status() -> dict[str, Any]:
     }
 
 
+async def _process_logged_job(
+    job: Any,
+    *,
+    include_public_emails: bool,
+) -> None:
+    started_at = time.perf_counter()
+
+    logger.info(
+        "WORKER_DOMAIN_START domain=%s job_id=%s attempts=%s "
+        "include_public_emails=%s",
+        job.domain,
+        job.id,
+        job.attempts,
+        include_public_emails,
+    )
+
+    try:
+        await process_job(
+            job,
+            include_public_emails=include_public_emails,
+        )
+    except asyncio.CancelledError:
+        logger.warning(
+            "WORKER_DOMAIN_CANCELLED domain=%s job_id=%s elapsed_seconds=%.2f",
+            job.domain,
+            job.id,
+            time.perf_counter() - started_at,
+        )
+        raise
+    except Exception:
+        logger.exception(
+            "WORKER_DOMAIN_FAILED domain=%s job_id=%s elapsed_seconds=%.2f",
+            job.domain,
+            job.id,
+            time.perf_counter() - started_at,
+        )
+        raise
+    else:
+        logger.info(
+            "WORKER_DOMAIN_END domain=%s job_id=%s elapsed_seconds=%.2f",
+            job.domain,
+            job.id,
+            time.perf_counter() - started_at,
+        )
+
+
 @router.get("/status")
 def worker_status() -> dict[str, Any]:
     try:
@@ -153,16 +204,27 @@ async def run_worker_batch(
                 "message": "Ni več čakajočih domen.",
             }
 
+        logger.info(
+            "WORKER_BATCH_START claimed=%s domains=%s include_public_emails=%s",
+            len(jobs),
+            ",".join(job.domain for job in jobs),
+            include_public_emails,
+        )
+
         await asyncio.gather(
             *(
-                process_job(
+                _process_logged_job(
                     job,
-                    include_public_emails=(
-                        include_public_emails
-                    ),
+                    include_public_emails=include_public_emails,
                 )
                 for job in jobs
             )
+        )
+
+        logger.info(
+            "WORKER_BATCH_END claimed=%s domains=%s",
+            len(jobs),
+            ",".join(job.domain for job in jobs),
         )
 
         return {
@@ -204,6 +266,64 @@ def resume_worker() -> dict[str, Any]:
         raise HTTPException(
             status_code=500,
             detail=f"Workerja ni bilo mogoče nadaljevati: {exc}",
+        ) from exc
+
+
+@router.post("/requeue-stale")
+def requeue_stale_worker_jobs(
+    stale_minutes: int = Query(default=10, ge=5, le=1440),
+) -> dict[str, Any]:
+    try:
+        supabase = get_supabase()
+
+        response = supabase.rpc(
+            "requeue_stale_domain_jobs",
+            {
+                "p_stale_minutes": stale_minutes,
+            },
+        ).execute()
+
+        value = response.data
+
+        if isinstance(value, int):
+            requeued = value
+        elif isinstance(value, list) and value:
+            first = value[0]
+            if isinstance(first, dict):
+                requeued = int(
+                    first.get("requeued")
+                    or first.get("count")
+                    or 0
+                )
+            else:
+                requeued = int(first or 0)
+        else:
+            requeued = 0
+
+        logger.warning(
+            "WORKER_REQUEUE_STALE stale_minutes=%s requeued=%s",
+            stale_minutes,
+            requeued,
+        )
+
+        return {
+            "status": "ok",
+            "stale_minutes": stale_minutes,
+            "requeued": requeued,
+            "worker_status": _read_status(),
+        }
+
+    except Exception as exc:
+        logger.exception(
+            "WORKER_REQUEUE_STALE_FAILED stale_minutes=%s",
+            stale_minutes,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Stale opravil ni bilo mogoče ponovno dodati: "
+                f"{exc}"
+            ),
         ) from exc
 
 
