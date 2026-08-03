@@ -226,8 +226,8 @@ export default function CallLogPage() {
   );
 
   return (
-    <div className="callLogPage">
-      <header className="callLogHeader">
+    <div className="v2Dashboard callLogPage">
+      <header className="v2Topbar callLogHeader">
         <div>
           <p className="eyebrow">CALL LOG</p>
           <h1>Poklicani</h1>
@@ -237,23 +237,34 @@ export default function CallLogPage() {
           </p>
         </div>
 
-        <a className="callLogPrimaryLink" href="/phones">
+        <a className="v2PrimaryButton callLogPrimaryLink" href="/phones">
           + Nov povzetek na telefonu
         </a>
       </header>
 
-      <section className="callLogStats">
-        {cards.map((card) => (
-          <article key={card.label}>
-            <span>{card.label}</span>
-            <strong>{loading ? "—" : card.value}</strong>
-            <small>{card.detail}</small>
+      <section className="v2KpiGrid callLogStats">
+        {cards.map((card, index) => (
+          <article className="v2KpiCard callLogStatCard" key={card.label}>
+            <span
+              className={`v2KpiIcon ${
+                ["blue", "violet", "green", "orange"][index] ?? "blue"
+              }`}
+              aria-hidden="true"
+            >
+              {["☎", "◷", "↻", "✓"][index] ?? "•"}
+            </span>
+
+            <div className="v2KpiMeta">
+              <span>{card.label}</span>
+              <strong>{loading ? "—" : card.value}</strong>
+              <small>{card.detail}</small>
+            </div>
           </article>
         ))}
       </section>
 
-      <section className="callLogPanel">
-        <div className="callLogToolbar">
+      <section className="v2Panel callLogPanel">
+        <div className="v2PanelHead callLogToolbar">
           <div>
             <h2>Vsi zabeleženi klici</h2>
             <p className="muted">
@@ -337,14 +348,14 @@ export default function CallLogPage() {
         )}
 
         {loading ? (
-          <div className="callLogEmpty">Nalaganje klicev …</div>
+          <div className="stateMessage callLogEmpty">Nalaganje klicev …</div>
         ) : items.length === 0 ? (
-          <div className="callLogEmpty">
+          <div className="stateMessage callLogEmpty">
             Ni zabeleženih klicev za izbrane filtre.
           </div>
         ) : (
-          <div className="callLogTableWrap">
-            <table className="callLogTable">
+          <div className="modernTableWrapper callLogTableWrap">
+            <table className="modernTable callLogTable">
               <thead>
                 <tr>
                   <th>Datum</th>
@@ -465,7 +476,7 @@ export default function CallLogPage() {
             }
           }}
         >
-          <aside className="callLogDrawer">
+          <aside className="callLogDrawer v2Panel">
             <header>
               <div>
                 <p className="eyebrow">POVZETEK KLICA</p>
