@@ -3,7 +3,7 @@
     [int]$BatchSize = 5,
     [int]$SleepSeconds = 3,
     [int]$StallMinutes = 10,
-    [int]$RequestTimeoutSeconds = 600,
+    [int]$RequestTimeoutSeconds = 300,
     [switch]$IncludePublicEmails
 )
 
@@ -26,7 +26,6 @@ $StartedAt = Get-Date
 $LastProgressAt = Get-Date
 $LastProcessed = -1
 $ConsecutiveErrors = 0
-$RecoveryEndpointAvailable = $true
 
 function Write-LogLine {
     param(
@@ -116,44 +115,18 @@ while ($true) {
 
         $MinutesWithoutProgress = ((Get-Date) - $LastProgressAt).TotalMinutes
 
-        if (
-            $MinutesWithoutProgress -ge $StallMinutes `
-            -and $Processing -gt 0 `
-            -and $RecoveryEndpointAvailable
-        ) {
+        if ($MinutesWithoutProgress -ge $StallMinutes -and $Processing -gt 0) {
             $RoundedMinutes = [math]::Round($MinutesWithoutProgress, 1)
             Write-LogLine -Message ("Napredek stoji " + $RoundedMinutes + " min. Poskusam requeue stale jobs.") -Color "Yellow"
 
-            try {
-                $RecoveryPath = "/admin/worker/requeue-stale?stale_minutes=" + $StallMinutes
-                $Recovery = Invoke-Api -Method "Post" -Path $RecoveryPath -TimeoutSeconds 120
+            $RecoveryPath = "/admin/worker/requeue-stale?stale_minutes=" + $StallMinutes
+            $Recovery = Invoke-Api -Method "Post" -Path $RecoveryPath -TimeoutSeconds 120
 
-                Write-LogLine -Message ("Requeued stale jobs: " + $Recovery.requeued) -Color "Yellow"
+            Write-LogLine -Message ("Requeued stale jobs: " + $Recovery.requeued) -Color "Yellow"
 
-                $LastProgressAt = Get-Date
-                Start-Sleep -Seconds 5
-                continue
-            }
-            catch {
-                $StatusCode = $null
-
-                if (
-                    $_.Exception.Response `
-                    -and $_.Exception.Response.StatusCode
-                ) {
-                    $StatusCode = [int]$_.Exception.Response.StatusCode
-                }
-
-                if ($StatusCode -eq 404) {
-                    $RecoveryEndpointAvailable = $false
-                    $LastProgressAt = Get-Date
-
-                    Write-LogLine -Message "Recovery endpoint /requeue-stale ni na voljo. Avtomatski requeue je izklopljen za ta zagon." -Color "Yellow"
-                }
-                else {
-                    throw
-                }
-            }
+            $LastProgressAt = Get-Date
+            Start-Sleep -Seconds 5
+            continue
         }
 
         $RunPath = "/admin/worker/run?limit=" + $BatchSize

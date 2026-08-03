@@ -8,10 +8,17 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 
 from app.database import get_supabase
-from app.workers.domain_worker import claim_jobs, process_job, seed_jobs
+from app.workers.domain_worker import (
+    claim_jobs,
+    process_job,
+    requeue_stale_jobs,
+    seed_jobs,
+)
 
 
 logger = logging.getLogger(__name__)
+
+DOMAIN_REQUEST_TIMEOUT_SECONDS = 240
 
 
 router = APIRouter(
@@ -108,9 +115,19 @@ async def _process_logged_job(
     )
 
     try:
-        await process_job(
-            job,
-            include_public_emails=include_public_emails,
+        await asyncio.wait_for(
+            process_job(
+                job,
+                include_public_emails=include_public_emails,
+            ),
+            timeout=DOMAIN_REQUEST_TIMEOUT_SECONDS,
+        )
+    except asyncio.TimeoutError:
+        logger.warning(
+            "WORKER_DOMAIN_TIMEOUT domain=%s job_id=%s elapsed_seconds=%.2f",
+            job.domain,
+            job.id,
+            time.perf_counter() - started_at,
         )
     except asyncio.CancelledError:
         logger.warning(
@@ -274,31 +291,7 @@ def requeue_stale_worker_jobs(
     stale_minutes: int = Query(default=10, ge=5, le=1440),
 ) -> dict[str, Any]:
     try:
-        supabase = get_supabase()
-
-        response = supabase.rpc(
-            "requeue_stale_domain_jobs",
-            {
-                "p_stale_minutes": stale_minutes,
-            },
-        ).execute()
-
-        value = response.data
-
-        if isinstance(value, int):
-            requeued = value
-        elif isinstance(value, list) and value:
-            first = value[0]
-            if isinstance(first, dict):
-                requeued = int(
-                    first.get("requeued")
-                    or first.get("count")
-                    or 0
-                )
-            else:
-                requeued = int(first or 0)
-        else:
-            requeued = 0
+        requeued = requeue_stale_jobs(stale_minutes)
 
         logger.warning(
             "WORKER_REQUEUE_STALE stale_minutes=%s requeued=%s",

@@ -22,67 +22,62 @@ from app.services.country_detector import (
 from app.services.person_matcher import find_person_phone_in_pages
 from app.services.person_search import search_public_mailbox_person
 from app.services.phone_finder import FinderResult, find_phone_from_pages
-from app.services.website_crawler import crawl_company_website
 from app.services.providers import clean_domain, is_public_email_domain
+from app.services.website_crawler import crawl_company_website
 
 
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO").upper(),
-    format=(
-        "%(asctime)s %(levelname)s "
-        "%(name)s %(message)s"
-    ),
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 
 logger = logging.getLogger(__name__)
 
 CONCURRENCY = max(
     1,
-    min(
-        int(os.getenv("DOMAIN_WORKER_CONCURRENCY", "5")),
-        20,
-    ),
+    min(int(os.getenv("DOMAIN_WORKER_CONCURRENCY", "5")), 20),
 )
-
 MAX_PAGES = max(
     1,
-    min(
-        int(os.getenv("DOMAIN_WORKER_MAX_PAGES", "10")),
-        20,
-    ),
+    min(int(os.getenv("DOMAIN_WORKER_MAX_PAGES", "10")), 20),
 )
-
 IDLE_SLEEP_SECONDS = max(
     2,
     int(os.getenv("DOMAIN_WORKER_IDLE_SLEEP", "15")),
 )
-
 PAUSED_SLEEP_SECONDS = max(
     5,
     int(os.getenv("DOMAIN_WORKER_PAUSED_SLEEP", "30")),
 )
-
 SEED_INTERVAL_MINUTES = max(
     1,
     int(os.getenv("DOMAIN_WORKER_SEED_INTERVAL_MINUTES", "10")),
 )
-
 MAX_RETRIES = max(
     1,
     int(os.getenv("DOMAIN_WORKER_MAX_RETRIES", "3")),
 )
-
 STALE_JOB_MINUTES = max(
     5,
     int(os.getenv("DOMAIN_WORKER_STALE_MINUTES", "30")),
 )
 
+PUBLIC_EMAIL_CHUNK_SIZE = max(
+    1,
+    min(int(os.getenv("PUBLIC_EMAIL_CHUNK_SIZE", "10")), 50),
+)
+PUBLIC_EMAIL_SEARCH_TIMEOUT_SECONDS = max(
+    5,
+    min(int(os.getenv("PUBLIC_EMAIL_SEARCH_TIMEOUT_SECONDS", "20")), 90),
+)
+PUBLIC_EMAIL_CONTACT_CONCURRENCY = max(
+    1,
+    min(int(os.getenv("PUBLIC_EMAIL_CONTACT_CONCURRENCY", "2")), 5),
+)
+
 WORKER_ID = os.getenv(
     "DOMAIN_WORKER_ID",
-    (
-        f"{socket.gethostname()}-"
-        f"{uuid.uuid4().hex[:8]}"
-    ),
+    f"{socket.gethostname()}-{uuid.uuid4().hex[:8]}",
 )
 
 
@@ -109,26 +104,20 @@ def retry_at_iso(attempts: int) -> str:
 
 
 def is_paused() -> bool:
-    supabase = get_supabase()
-
     response = (
-        supabase.table("worker_control")
+        get_supabase()
+        .table("worker_control")
         .select("paused")
         .eq("worker_name", "domain_enrichment")
         .limit(1)
         .execute()
     )
-
     rows = response.data or []
     return bool(rows and rows[0].get("paused"))
 
 
 def seed_jobs() -> int:
-    supabase = get_supabase()
-    response = supabase.rpc(
-        "seed_domain_jobs",
-    ).execute()
-
+    response = get_supabase().rpc("seed_domain_jobs").execute()
     value = response.data
 
     if isinstance(value, int):
@@ -143,12 +132,17 @@ def seed_jobs() -> int:
     return 0
 
 
-def requeue_stale_jobs() -> int:
-    supabase = get_supabase()
-    response = supabase.rpc(
+def requeue_stale_jobs(
+    stale_minutes: int | None = None,
+) -> int:
+    response = get_supabase().rpc(
         "requeue_stale_domain_jobs",
         {
-            "p_stale_minutes": STALE_JOB_MINUTES,
+            "p_stale_minutes": (
+                stale_minutes
+                if stale_minutes is not None
+                else STALE_JOB_MINUTES
+            ),
         },
     ).execute()
 
@@ -157,13 +151,24 @@ def requeue_stale_jobs() -> int:
     if isinstance(value, int):
         return value
 
+    if isinstance(value, list) and value:
+        first = value[0]
+        if isinstance(first, dict):
+            return int(
+                first.get("requeued")
+                or first.get("count")
+                or 0
+            )
+        try:
+            return int(first or 0)
+        except (TypeError, ValueError):
+            return 0
+
     return 0
 
 
 def claim_jobs(limit: int) -> list[DomainJob]:
-    supabase = get_supabase()
-
-    response = supabase.rpc(
+    response = get_supabase().rpc(
         "claim_domain_jobs",
         {
             "p_limit": limit,
@@ -171,15 +176,13 @@ def claim_jobs(limit: int) -> list[DomainJob]:
         },
     ).execute()
 
-    rows = response.data or []
-
     return [
         DomainJob(
             id=str(row["id"]),
             domain=str(row["domain"]),
             attempts=int(row.get("attempts") or 0),
         )
-        for row in rows
+        for row in (response.data or [])
     ]
 
 
@@ -187,29 +190,130 @@ def update_job(
     job_id: str,
     payload: dict[str, Any],
 ) -> None:
-    supabase = get_supabase()
-
     (
-        supabase.table("domain_jobs")
+        get_supabase()
+        .table("domain_jobs")
         .update(payload)
         .eq("id", job_id)
         .execute()
     )
 
 
-def get_contacts_for_domain(domain: str) -> list[dict[str, Any]]:
-    supabase = get_supabase()
+def get_contacts_for_domain(
+    domain: str,
+) -> list[dict[str, Any]]:
     response = (
-        supabase.table("email_targets")
-        .select("id,email,domain,scan_attempts")
+        get_supabase()
+        .table("email_targets")
+        .select("id,email,domain,scan_attempts,status")
         .eq("domain", domain)
         .execute()
     )
     return response.data or []
 
-def update_contact(contact_id: str, payload: dict[str, Any]) -> None:
-    supabase = get_supabase()
-    supabase.table("email_targets").update(payload).eq("id", contact_id).execute()
+
+def get_new_contacts_chunk(
+    domain: str,
+    limit: int,
+) -> list[dict[str, Any]]:
+    response = (
+        get_supabase()
+        .table("email_targets")
+        .select("id,email,domain,scan_attempts,status")
+        .eq("domain", domain)
+        .eq("status", "NEW")
+        .order("created_at")
+        .limit(limit)
+        .execute()
+    )
+    return response.data or []
+
+
+def count_contacts(
+    domain: str,
+    *,
+    status: str | None = None,
+) -> int:
+    query = (
+        get_supabase()
+        .table("email_targets")
+        .select("id", count="exact")
+        .eq("domain", domain)
+        .limit(1)
+    )
+
+    if status:
+        query = query.eq("status", status)
+
+    response = query.execute()
+    return int(response.count or 0)
+
+
+def count_domain_matches(domain: str) -> int:
+    response = (
+        get_supabase()
+        .table("email_targets")
+        .select("id", count="exact")
+        .eq("domain", domain)
+        .eq("status", "MATCHED")
+        .limit(1)
+        .execute()
+    )
+    return int(response.count or 0)
+
+
+def update_contact(
+    contact_id: str,
+    payload: dict[str, Any],
+) -> None:
+    (
+        get_supabase()
+        .table("email_targets")
+        .update(payload)
+        .eq("id", contact_id)
+        .execute()
+    )
+
+
+def classify_public_domain_without_research(
+    domain: str,
+) -> None:
+    (
+        get_supabase()
+        .table("email_targets")
+        .update(
+            {
+                "website": None,
+                "phone": None,
+                "confidence": None,
+                "source_url": None,
+                "pages_scanned": 0,
+                "scan_duration_ms": 0,
+                "last_scan": utc_now_iso(),
+                "status": "PUBLIC_EMAIL",
+                "last_error": None,
+                "country_code": None,
+                "country_name": None,
+                "country_flag": None,
+                "country_confidence": 0,
+                "country_source": "unknown",
+                "country_evidence": [],
+                "language_code": None,
+                "timezone_name": None,
+                "phone_country_code": None,
+                "phone_country_name": None,
+                "phone_country_flag": None,
+                "phone_country_confidence": 0,
+                "country_mismatch": False,
+                "is_cross_border": False,
+                "person_match_type": "public_email",
+                "company_id": None,
+            }
+        )
+        .eq("domain", domain)
+        .execute()
+    )
+
 
 def _payload(
     result: FinderResult,
@@ -220,16 +324,19 @@ def _payload(
     person_match_type: str,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
-        "website": result.website, "phone": result.phone,
-        "confidence": result.confidence, "source_url": result.source_url,
-        "pages_scanned": result.pages_scanned, "scan_attempts": attempts,
-        "scan_duration_ms": result.scan_duration_ms, "last_scan": utc_now_iso(),
-        "status": result.status, "last_error": result.error,
+        "website": result.website,
+        "phone": result.phone,
+        "confidence": result.confidence,
+        "source_url": result.source_url,
+        "pages_scanned": result.pages_scanned,
+        "scan_attempts": attempts,
+        "scan_duration_ms": result.scan_duration_ms,
+        "last_scan": utc_now_iso(),
+        "status": result.status,
+        "last_error": result.error,
     }
     payload.update(country_payload(country))
-    payload.update(
-        phone_country_payload(phone_country)
-    )
+    payload.update(phone_country_payload(phone_country))
     payload.update(
         country_mismatch_payload(
             country,
@@ -237,9 +344,225 @@ def _payload(
         )
     )
     payload["person_match_type"] = person_match_type
+
     if company_id:
         payload["company_id"] = company_id
+    else:
+        payload["company_id"] = None
+
     return payload
+
+
+def _not_found_public_result(
+    duration_ms: int,
+    error: str | None = None,
+) -> FinderResult:
+    return FinderResult(
+        status="NOT_FOUND",
+        website=None,
+        phone=None,
+        confidence=None,
+        source_url=None,
+        pages_scanned=0,
+        scan_duration_ms=duration_ms,
+        candidates=[],
+        error=error,
+        confidence_label="UNKNOWN",
+    )
+
+
+async def _process_public_contact(
+    contact: dict[str, Any],
+    semaphore: asyncio.Semaphore,
+) -> bool:
+    email = str(contact.get("email") or "")
+    started_at = time.perf_counter()
+
+    async with semaphore:
+        try:
+            result = await asyncio.wait_for(
+                search_public_mailbox_person(email),
+                timeout=PUBLIC_EMAIL_SEARCH_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            result = _not_found_public_result(
+                int(
+                    (
+                        time.perf_counter()
+                        - started_at
+                    )
+                    * 1000
+                ),
+                (
+                    "Public person search timed out after "
+                    f"{PUBLIC_EMAIL_SEARCH_TIMEOUT_SECONDS}s."
+                ),
+            )
+            logger.warning(
+                "PUBLIC_EMAIL_TIMEOUT email=%s timeout_seconds=%s",
+                email,
+                PUBLIC_EMAIL_SEARCH_TIMEOUT_SECONDS,
+            )
+        except Exception as exc:
+            result = _not_found_public_result(
+                int(
+                    (
+                        time.perf_counter()
+                        - started_at
+                    )
+                    * 1000
+                ),
+                f"{type(exc).__name__}: {exc}",
+            )
+            logger.exception(
+                "PUBLIC_EMAIL_SEARCH_FAILED email=%s",
+                email,
+            )
+
+    matched = bool(
+        result.status == "MATCHED"
+        and result.phone
+    )
+
+    phone_country = detect_phone_country(result.phone)
+    country = phone_country if matched else detect_phone_country(None)
+
+    await asyncio.to_thread(
+        update_contact,
+        str(contact["id"]),
+        _payload(
+            result,
+            None,
+            int(contact.get("scan_attempts") or 0) + 1,
+            country,
+            phone_country,
+            "public_person" if matched else "public_email",
+        ),
+    )
+
+    logger.info(
+        "PUBLIC_EMAIL_CONTACT_DONE email=%s matched=%s elapsed_seconds=%.2f",
+        email,
+        matched,
+        time.perf_counter() - started_at,
+    )
+
+    return matched
+
+
+async def _process_public_email_chunk(
+    job: DomainJob,
+    domain: str,
+) -> None:
+    total_contacts = await asyncio.to_thread(
+        count_contacts,
+        domain,
+    )
+
+    chunk = await asyncio.to_thread(
+        get_new_contacts_chunk,
+        domain,
+        PUBLIC_EMAIL_CHUNK_SIZE,
+    )
+
+    if not chunk:
+        matched = await asyncio.to_thread(
+            count_domain_matches,
+            domain,
+        )
+        update_job(
+            job.id,
+            {
+                "status": (
+                    "MATCHED"
+                    if matched > 0
+                    else "NOT_FOUND"
+                ),
+                "processed_contacts": total_contacts,
+                "total_contacts": total_contacts,
+                "finished_at": utc_now_iso(),
+                "worker_id": None,
+                "started_at": None,
+                "last_error": None,
+                "next_retry_at": None,
+            },
+        )
+        return
+
+    logger.info(
+        "PUBLIC_EMAIL_CHUNK_START domain=%s chunk=%s total=%s",
+        domain,
+        len(chunk),
+        total_contacts,
+    )
+
+    semaphore = asyncio.Semaphore(
+        PUBLIC_EMAIL_CONTACT_CONCURRENCY
+    )
+
+    await asyncio.gather(
+        *(
+            _process_public_contact(
+                contact,
+                semaphore,
+            )
+            for contact in chunk
+        )
+    )
+
+    remaining = await asyncio.to_thread(
+        count_contacts,
+        domain,
+        status="NEW",
+    )
+    processed = max(total_contacts - remaining, 0)
+    matched = await asyncio.to_thread(
+        count_domain_matches,
+        domain,
+    )
+
+    if remaining > 0:
+        update_job(
+            job.id,
+            {
+                "status": "PENDING",
+                "processed_contacts": processed,
+                "total_contacts": total_contacts,
+                "worker_id": None,
+                "started_at": None,
+                "finished_at": None,
+                "last_error": None,
+                "next_retry_at": None,
+            },
+        )
+    else:
+        update_job(
+            job.id,
+            {
+                "status": (
+                    "MATCHED"
+                    if matched > 0
+                    else "NOT_FOUND"
+                ),
+                "processed_contacts": total_contacts,
+                "total_contacts": total_contacts,
+                "worker_id": None,
+                "started_at": None,
+                "finished_at": utc_now_iso(),
+                "last_error": None,
+                "next_retry_at": None,
+            },
+        )
+
+    logger.info(
+        "PUBLIC_EMAIL_CHUNK_END domain=%s processed=%s total=%s remaining=%s matched=%s",
+        domain,
+        processed,
+        total_contacts,
+        remaining,
+        matched,
+    )
+
 
 async def process_job(
     job: DomainJob,
@@ -254,6 +577,7 @@ async def process_job(
                 "status": "NOT_FOUND",
                 "finished_at": utc_now_iso(),
                 "worker_id": None,
+                "started_at": None,
                 "last_error": "Invalid domain.",
                 "next_retry_at": None,
             },
@@ -263,115 +587,71 @@ async def process_job(
     started_at = time.perf_counter()
 
     try:
+        public_email_domain = is_public_email_domain(domain)
+
+        if public_email_domain:
+            if include_public_emails:
+                await _process_public_email_chunk(
+                    job,
+                    domain,
+                )
+            else:
+                await asyncio.to_thread(
+                    classify_public_domain_without_research,
+                    domain,
+                )
+                total_contacts = await asyncio.to_thread(
+                    count_contacts,
+                    domain,
+                )
+                update_job(
+                    job.id,
+                    {
+                        "status": "NOT_FOUND",
+                        "processed_contacts": total_contacts,
+                        "total_contacts": total_contacts,
+                        "finished_at": utc_now_iso(),
+                        "worker_id": None,
+                        "started_at": None,
+                        "last_error": (
+                            "Public mailbox provider; "
+                            "excluded from company enrichment."
+                        ),
+                        "next_retry_at": None,
+                    },
+                )
+
+            return
+
         logger.info(
             "DOMAIN_STAGE domain=%s stage=load_contacts_start",
             domain,
         )
-
         contacts = await asyncio.to_thread(
             get_contacts_for_domain,
             domain,
         )
-
         logger.info(
             "DOMAIN_STAGE domain=%s stage=load_contacts_end contacts=%s",
             domain,
             len(contacts),
         )
 
-        # Public mailbox / ISP domains are not company websites.
-        # They are classified immediately and never crawled or searched.
-        public_email_domain = is_public_email_domain(domain)
-
-        if public_email_domain and not include_public_emails:
-            for contact in contacts:
-                attempts = (
-                    int(contact.get("scan_attempts") or 0)
-                    + 1
-                )
-
-                await asyncio.to_thread(
-                    update_contact,
-                    str(contact["id"]),
-                    {
-                        "website": None,
-                        "phone": None,
-                        "confidence": None,
-                        "source_url": None,
-                        "pages_scanned": 0,
-                        "scan_attempts": attempts,
-                        "scan_duration_ms": int(
-                            (
-                                time.perf_counter()
-                                - started_at
-                            )
-                            * 1000
-                        ),
-                        "last_scan": utc_now_iso(),
-                        "status": "PUBLIC_EMAIL",
-                        "last_error": None,
-                        "country_code": None,
-                        "country_name": None,
-                        "country_flag": None,
-                        "country_confidence": 0,
-                        "country_source": "unknown",
-                        "country_evidence": [],
-                        "language_code": None,
-                        "timezone_name": None,
-                        "phone_country_code": None,
-                        "phone_country_name": None,
-                        "phone_country_flag": None,
-                        "phone_country_confidence": 0,
-                        "country_mismatch": False,
-                        "is_cross_border": False,
-                        "person_match_type": "public_email",
-                        "company_id": None,
-                    },
-                )
-
-            update_job(
-                job.id,
-                {
-                    "status": "NOT_FOUND",
-                    "finished_at": utc_now_iso(),
-                    "worker_id": None,
-                    "last_error": (
-                        "Public mailbox provider; "
-                        "excluded from company enrichment."
-                    ),
-                    "next_retry_at": None,
-                },
-            )
-
-            logger.info(
-                "domain=%s public_mailbox=true contacts=%s classified=PUBLIC_EMAIL",
-                domain,
-                len(contacts),
-            )
-            return
-
         logger.info(
             "DOMAIN_STAGE domain=%s stage=crawl_start max_pages=%s",
             domain,
             MAX_PAGES,
         )
-
         website, pages = await crawl_company_website(
             domain,
             max_pages=MAX_PAGES,
         )
-
         logger.info(
             "DOMAIN_STAGE domain=%s stage=crawl_end website=%s pages=%s elapsed_seconds=%.2f",
             domain,
             website,
             len(pages),
             time.perf_counter() - started_at,
-        )
-
-        logger.info(
-            "DOMAIN_STAGE domain=%s stage=company_phone_start",
-            domain,
         )
 
         company_result = find_phone_from_pages(
@@ -381,42 +661,25 @@ async def process_job(
             started_at=started_at,
         )
 
-        logger.info(
-            "DOMAIN_STAGE domain=%s stage=company_phone_end status=%s phone=%s",
-            domain,
-            company_result.status,
-            bool(company_result.phone),
-        )
-
         company_country = detect_company_country(
             phone=company_result.phone,
             website_or_domain=website or domain,
             pages=pages,
             allow_tld=True,
         )
-
         company_phone_country = detect_phone_country(
             company_result.phone
         )
 
-        company_id = None
-
-        if not public_email_domain:
-            company_id = await asyncio.to_thread(
-                save_company_result,
-                domain,
-                company_result,
-                company_country,
-                company_phone_country,
-            )
+        company_id = await asyncio.to_thread(
+            save_company_result,
+            domain,
+            company_result,
+            company_country,
+            company_phone_country,
+        )
 
         person_matches = 0
-
-        logger.info(
-            "DOMAIN_STAGE domain=%s stage=contact_matching_start contacts=%s",
-            domain,
-            len(contacts),
-        )
 
         for contact in contacts:
             email = str(contact.get("email") or "")
@@ -424,19 +687,6 @@ async def process_job(
                 email,
                 pages,
                 domain,
-            )
-
-            logger.info(
-                (
-                    "PERSON MATCH email=%s "
-                    "matched=%s phone=%s "
-                    "score=%s evidence=%s"
-                ),
-                email,
-                person.matched,
-                person.phone,
-                person.score,
-                person.evidence,
             )
 
             if person.matched and person.phone:
@@ -460,65 +710,24 @@ async def process_job(
                             "phone": person.phone,
                             "score": person.score,
                             "source": "person_block",
-                            "source_url": (
-                                person.source_url
-                            ),
-                            "evidence": list(
-                                person.evidence
-                            ),
-                            "person_name": (
-                                person.person_name
-                            ),
+                            "source_url": person.source_url,
+                            "evidence": list(person.evidence),
+                            "person_name": person.person_name,
                         }
                     ],
                     error=None,
                     confidence_label=(
                         "VERY_HIGH"
-                        if (
-                            person.confidence or 0
-                        ) >= 90
+                        if (person.confidence or 0) >= 90
                         else "HIGH"
-                        if (
-                            person.confidence or 0
-                        ) >= 75
+                        if (person.confidence or 0) >= 75
                         else "MEDIUM"
-                        if (
-                            person.confidence or 0
-                        ) >= 50
+                        if (person.confidence or 0) >= 50
                         else "LOW"
                     ),
                 )
-            elif public_email_domain:
-                # Research mode must never assign Gmail/Outlook/provider
-                # company support numbers to individual mailbox owners.
-                chosen = FinderResult(
-                    status="NOT_FOUND",
-                    website=website,
-                    phone=None,
-                    confidence=None,
-                    source_url=None,
-                    pages_scanned=len(pages),
-                    scan_duration_ms=int(
-                        (
-                            time.perf_counter()
-                            - started_at
-                        )
-                        * 1000
-                    ),
-                    candidates=[],
-                    error=None,
-                    confidence_label="UNKNOWN",
-                )
             else:
                 chosen = company_result
-
-            contact_country = (
-                detect_phone_country(chosen.phone)
-                if public_email_domain and chosen.phone
-                else company_country
-                if not public_email_domain
-                else detect_phone_country(None)
-            )
 
             await asyncio.to_thread(
                 update_contact,
@@ -526,30 +735,14 @@ async def process_job(
                 _payload(
                     chosen,
                     company_id,
-                    int(
-                        contact.get(
-                            "scan_attempts"
-                        )
-                        or 0
-                    )
-                    + 1,
-                    contact_country,
-                    detect_phone_country(
-                        chosen.phone
-                    ),
+                    int(contact.get("scan_attempts") or 0) + 1,
+                    company_country,
+                    detect_phone_country(chosen.phone),
                     (
-                        "public_person"
-                        if (
-                            public_email_domain
-                            and person.matched
-                            and person.phone
-                        )
-                        else "person_phone"
+                        "person_phone"
                         if person.matched and person.phone
                         else "company_phone"
                         if chosen.status == "MATCHED"
-                        else "public_email"
-                        if public_email_domain
                         else "none"
                     ),
                 ),
@@ -566,39 +759,51 @@ async def process_job(
             job.id,
             {
                 "status": job_status,
+                "processed_contacts": len(contacts),
+                "total_contacts": len(contacts),
                 "finished_at": utc_now_iso(),
                 "worker_id": None,
+                "started_at": None,
                 "last_error": company_result.error,
                 "next_retry_at": (
                     None
                     if job_status != "FAILED"
-                    else retry_at_iso(
-                        job.attempts
-                    )
+                    else retry_at_iso(job.attempts)
                 ),
             },
         )
 
         logger.info(
-            (
-                "domain=%s company_status=%s "
-                "contacts=%s person_matches=%s "
-                "public_email_research=%s"
-            ),
+            "domain=%s company_status=%s contacts=%s person_matches=%s",
             domain,
             company_result.status,
             len(contacts),
             person_matches,
-            bool(
-                public_email_domain
-                and include_public_emails
-            ),
         )
 
-    except Exception as exc:
-        terminal_failure = (
-            job.attempts >= MAX_RETRIES
+    except asyncio.CancelledError:
+        update_job(
+            job.id,
+            {
+                "status": "PENDING",
+                "worker_id": None,
+                "started_at": None,
+                "finished_at": None,
+                "last_error": (
+                    "Job cancelled before completion; "
+                    "automatically returned to queue."
+                ),
+                "next_retry_at": None,
+            },
         )
+        logger.warning(
+            "Domain job cancelled and requeued: %s",
+            domain,
+        )
+        raise
+
+    except Exception as exc:
+        terminal_failure = job.attempts >= MAX_RETRIES
 
         update_job(
             job.id,
@@ -606,19 +811,15 @@ async def process_job(
                 "status": "FAILED",
                 "finished_at": utc_now_iso(),
                 "worker_id": None,
-                "last_error": (
-                    f"{type(exc).__name__}: {exc}"
-                ),
+                "started_at": None,
+                "last_error": f"{type(exc).__name__}: {exc}",
                 "next_retry_at": (
                     None
                     if terminal_failure
-                    else retry_at_iso(
-                        job.attempts
-                    )
+                    else retry_at_iso(job.attempts)
                 ),
             },
         )
-
         logger.exception(
             "Domain job failed: %s",
             domain,
@@ -627,10 +828,7 @@ async def process_job(
 
 async def worker_loop() -> None:
     logger.info(
-        (
-            "Starting ContactIQ domain worker "
-            "worker_id=%s concurrency=%s max_pages=%s"
-        ),
+        "Starting ContactIQ domain worker worker_id=%s concurrency=%s max_pages=%s",
         WORKER_ID,
         CONCURRENCY,
         MAX_PAGES,
@@ -650,17 +848,8 @@ async def worker_loop() -> None:
 
     while True:
         try:
-            paused = await asyncio.to_thread(
-                is_paused,
-            )
-
-            if paused:
-                logger.info(
-                    "Worker is paused."
-                )
-                await asyncio.sleep(
-                    PAUSED_SLEEP_SECONDS
-                )
+            if await asyncio.to_thread(is_paused):
+                await asyncio.sleep(PAUSED_SLEEP_SECONDS)
                 continue
 
             now = datetime.now(timezone.utc)
@@ -668,15 +857,10 @@ async def worker_loop() -> None:
             if (
                 last_seed_at is None
                 or now - last_seed_at
-                >= timedelta(
-                    minutes=SEED_INTERVAL_MINUTES
-                )
+                >= timedelta(minutes=SEED_INTERVAL_MINUTES)
             ):
-                seeded = await asyncio.to_thread(
-                    seed_jobs,
-                )
+                seeded = await asyncio.to_thread(seed_jobs)
                 last_seed_at = now
-
                 logger.info(
                     "Domain queue synchronized. rows=%s",
                     seeded,
@@ -688,28 +872,20 @@ async def worker_loop() -> None:
             )
 
             if not jobs:
-                await asyncio.sleep(
-                    IDLE_SLEEP_SECONDS
-                )
+                await asyncio.sleep(IDLE_SLEEP_SECONDS)
                 continue
 
             await asyncio.gather(
-                *(
-                    process_job(job)
-                    for job in jobs
-                )
+                *(process_job(job) for job in jobs)
             )
 
         except asyncio.CancelledError:
             raise
-
         except Exception:
             logger.exception(
                 "Unexpected worker loop error."
             )
-            await asyncio.sleep(
-                IDLE_SLEEP_SECONDS
-            )
+            await asyncio.sleep(IDLE_SLEEP_SECONDS)
 
 
 def main() -> None:

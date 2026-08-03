@@ -38,8 +38,9 @@ BLOCKED_HOSTS = {
     "tiktok.com",
 }
 
-MAX_SEARCH_RESULTS = 6
-MAX_FETCHED_PAGES = 4
+MAX_SEARCH_RESULTS = 4
+MAX_FETCHED_PAGES = 2
+MAX_QUERIES = 2
 
 
 @dataclass(frozen=True)
@@ -458,7 +459,7 @@ async def search_public_mailbox_person(
         headers=headers,
         follow_redirects=True,
     ) as client:
-        for query in _build_queries(hint):
+        for query in _build_queries(hint)[:MAX_QUERIES]:
             all_hits.extend(
                 await _search_bing(
                     client,
