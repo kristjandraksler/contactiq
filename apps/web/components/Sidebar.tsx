@@ -2,86 +2,67 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Icon } from "./ui/Icon";
 
-const items = [
-  { href: "/", label: "Pregled", icon: "⌂" },
-  { href: "/contacts", label: "Kontakti", icon: "◎" },
-  { href: "/phones", label: "Telefoni", icon: "↗" },
-  { href: "/companies", label: "Podjetja", icon: "◇" },
-  { href: "/jobs", label: "Opravila", icon: "✓" },
-  { href: "/import", label: "Uvoz", icon: "↓" },
-  { href: "/settings", label: "Nastavitve", icon: "⚙" },
+const primary = [
+  { href: "/", label: "Dashboard", icon: "dashboard" as const },
+  { href: "/contacts", label: "Contacts", icon: "contacts" as const },
+  { href: "/companies", label: "Companies", icon: "company" as const },
+  { href: "/phones", label: "Phone discovery", icon: "phone" as const },
+  { href: "/jobs", label: "Worker", icon: "discovery" as const },
 ];
 
-export default function Sidebar() {
+const secondary = [
+  { href: "/import", label: "Import", icon: "import" as const },
+  { href: "/settings", label: "Settings", icon: "settings" as const },
+];
+
+type NavItemProps = { href: string; label: string; icon: Parameters<typeof Icon>[0]["name"] };
+
+function NavItem({ href, label, icon }: NavItemProps) {
   const pathname = usePathname();
+  const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
 
   return (
-    <aside className="sidebar">
-      <div className="sidebarTop">
-        <Link href="/" className="brand">
-          <span className="brandMark">C</span>
-          <span className="brandText">
+    <Link href={href} className={`v2NavItem ${active ? "active" : ""}`}>
+      <Icon name={icon} width={18} height={18} />
+      <span>{label}</span>
+    </Link>
+  );
+}
+
+export default function Sidebar() {
+  return (
+    <aside className="v2Sidebar">
+      <div className="v2SidebarHead">
+        <Link href="/" className="v2Brand">
+          <span className="v2BrandMark">CI</span>
+          <span>
             Contact<strong>IQ</strong>
           </span>
         </Link>
-
-        <div className="workspacePill">
-          <span>Internal workspace</span>
-          <i />
-        </div>
+        <span className="v2Environment">Internal</span>
       </div>
 
-      <nav className="sidebarNav">
+      <nav className="v2Nav">
         <p>Workspace</p>
-        {items.slice(0, 5).map((item) => {
-          const active =
-            item.href === "/"
-              ? pathname === "/"
-              : pathname.startsWith(item.href);
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={active ? "active" : ""}
-            >
-              <span className="navIcon">{item.icon}</span>
-              {item.label}
-            </Link>
-          );
-        })}
-
-        <p className="navGroupLabel">Upravljanje</p>
-        {items.slice(5).map((item) => {
-          const active = pathname.startsWith(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={active ? "active" : ""}
-            >
-              <span className="navIcon">{item.icon}</span>
-              {item.label}
-            </Link>
-          );
-        })}
+        {primary.map((item) => <NavItem key={item.href} {...item} />)}
+        <p className="v2NavSection">Manage</p>
+        {secondary.map((item) => <NavItem key={item.href} {...item} />)}
       </nav>
 
-      <div className="sidebarFooter">
-        <div className="sidebarUsage">
-          <div>
-            <span>Mesečna poraba</span>
-            <strong>V razvoju</strong>
+      <div className="v2SidebarFooter">
+        <div className="v2UsageCard">
+          <div className="v2UsageTop">
+            <span>Database</span>
+            <strong>Live</strong>
           </div>
-          <div className="usageTrack"><span /></div>
+          <div className="v2UsageTrack"><span /></div>
+          <small>Contact intelligence workspace</small>
         </div>
-        <div className="userCard">
-          <span className="userAvatar">KD</span>
-          <div>
-            <strong>ContactIQ</strong>
-            <small>Administrator</small>
-          </div>
+        <div className="v2Profile">
+          <span className="v2Avatar">KD</span>
+          <div><strong>Administrator</strong><small>ContactIQ workspace</small></div>
         </div>
       </div>
     </aside>
