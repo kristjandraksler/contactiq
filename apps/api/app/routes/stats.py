@@ -23,6 +23,9 @@ def stats() -> dict[str, object]:
                     "country_code,"
                     "country_name,"
                     "country_flag,"
+                    "phone_country_code,"
+                    "phone_country_name,"
+                    "phone_country_flag,"
                     "person_match_type"
                 )
             )
@@ -40,44 +43,76 @@ def stats() -> dict[str, object]:
             "PUBLIC_EMAIL": 0,
         }
 
-        country_counts: dict[str, dict[str, object]] = {}
+        business_country_counts: dict[str, dict[str, object]] = {}
+        phone_country_counts: dict[str, dict[str, object]] = {}
         confidence_values: list[float] = []
+
         person_phones = 0
         company_phones = 0
+        phones_found = 0
 
         for row in rows:
             status = str(row.get("status") or "")
+
             if status in counts:
                 counts[status] += 1
 
             phone = row.get("phone")
             confidence = row.get("confidence")
-
-            if phone and confidence is not None:
-                try:
-                    confidence_values.append(float(confidence))
-                except (TypeError, ValueError):
-                    pass
-
-            match_type = row.get("person_match_type")
-            if phone and match_type in {"person_phone", "public_person"}:
-                person_phones += 1
-            elif phone and match_type == "company_phone":
-                company_phones += 1
+            match_type = str(row.get("person_match_type") or "")
 
             if phone:
-                code = str(row.get("country_code") or "").upper()
-                if code:
-                    item = country_counts.setdefault(
-                        code,
+                phones_found += 1
+
+                if confidence is not None:
+                    try:
+                        confidence_values.append(float(confidence))
+                    except (TypeError, ValueError):
+                        pass
+
+                if match_type in {"person_phone", "public_person"}:
+                    person_phones += 1
+                elif match_type == "company_phone":
+                    company_phones += 1
+
+                phone_code = str(
+                    row.get("phone_country_code")
+                    or row.get("country_code")
+                    or ""
+                ).upper()
+
+                if phone_code:
+                    phone_item = phone_country_counts.setdefault(
+                        phone_code,
                         {
-                            "code": code,
+                            "code": phone_code,
+                            "name": (
+                                row.get("phone_country_name")
+                                or row.get("country_name")
+                            ),
+                            "flag": (
+                                row.get("phone_country_flag")
+                                or row.get("country_flag")
+                            ),
+                            "count": 0,
+                        },
+                    )
+                    phone_item["count"] = int(phone_item["count"]) + 1
+
+            if status != "PUBLIC_EMAIL":
+                company_code = str(row.get("country_code") or "").upper()
+
+                if company_code:
+                    company_item = business_country_counts.setdefault(
+                        company_code,
+                        {
+                            "code": company_code,
                             "name": row.get("country_name"),
                             "flag": row.get("country_flag"),
                             "count": 0,
                         },
                     )
-                    item["count"] = int(item["count"]) + 1
+                    company_item["count"] = int(company_item["count"]) + 1
 
         emails_total = len(rows)
         public_email = counts["PUBLIC_EMAIL"]
@@ -90,9 +125,16 @@ def stats() -> dict[str, object]:
         pending = counts["NEW"]
 
         business_completed = matched + partial + not_found + failed
+        processed_total = emails_total - pending
 
-        business_success_rate = (
-            round((matched / business_completed) * 100, 2)
+        success_rate = (
+            round((phones_found / business_contacts) * 100, 2)
+            if business_contacts > 0
+            else 0.0
+        )
+
+        completed_success_rate = (
+            round((phones_found / business_completed) * 100, 2)
             if business_completed > 0
             else 0.0
         )
@@ -104,7 +146,12 @@ def stats() -> dict[str, object]:
         )
 
         countries = sorted(
-            country_counts.values(),
+            business_country_counts.values(),
+            key=lambda item: -int(item["count"]),
+        )
+
+        phone_countries = sorted(
+            phone_country_counts.values(),
             key=lambda item: -int(item["count"]),
         )
 
@@ -118,16 +165,22 @@ def stats() -> dict[str, object]:
             "not_found": not_found,
             "failed": failed,
             "completed": business_completed,
-            "success_rate": business_success_rate,
-            "business_success_rate": business_success_rate,
+            "processed_total": processed_total,
+            "phones_found": phones_found,
+            "success_rate": success_rate,
+            "business_success_rate": success_rate,
+            "completed_success_rate": completed_success_rate,
             "average_confidence": average_confidence,
             "person_phones": person_phones,
             "company_phones": company_phones,
             "countries": countries,
             "countries_total": len(countries),
+            "phone_countries": phone_countries,
+            "phone_countries_total": len(phone_countries),
             "unknown_country": max(
                 0,
-                matched - sum(int(item["count"]) for item in countries),
+                business_contacts
+                - sum(int(item["count"]) for item in countries),
             ),
         }
 

@@ -17,7 +17,10 @@ type Stats = {
   not_found: number;
   failed: number;
   completed: number;
+  processed_total?: number;
+  phones_found?: number;
   success_rate: number;
+  completed_success_rate?: number;
   business_success_rate?: number;
   average_confidence?: number;
   person_phones?: number;
@@ -100,7 +103,7 @@ export default function DashboardPage() {
       setError(null);
       const [statsRes, contactsRes, workerRes] = await Promise.all([
         fetch(`${API_URL}/stats`, { cache: "no-store" }),
-        fetch(`${API_URL}/contacts?page=1&page_size=6&sort_by=updated_at&sort_direction=desc`, { cache: "no-store" }),
+        fetch(`${API_URL}/contacts?page=1&page_size=6&sort_by=updated_at&sort_direction=desc&status=MATCHED`, { cache: "no-store" }),
         fetch(`${API_URL}/admin/worker/status`, { cache: "no-store" }),
       ]);
       if (!statsRes.ok || !contactsRes.ok) throw new Error("Dashboard data could not be loaded.");
@@ -143,12 +146,27 @@ export default function DashboardPage() {
   const countries = useMemo(() => (stats?.countries ?? []).slice(0, 6), [stats]);
   const maxCountry = Math.max(...countries.map((item) => item.count), 1);
   const success = stats?.business_success_rate ?? stats?.success_rate ?? 0;
-  const progress = worker?.progress_percent ?? (stats?.completed && stats?.emails_total ? (stats.completed / stats.emails_total) * 100 : 0);
+  const progress = worker?.progress_percent ?? (
+    stats?.processed_total && stats?.emails_total
+      ? (stats.processed_total / stats.emails_total) * 100
+      : 0
+  );
+
+  const workerState =
+    worker?.paused
+      ? "Paused"
+      : (worker?.processing ?? 0) > 0
+      ? "Running"
+      : (worker?.pending ?? 0) > 0
+      ? "Queued"
+      : progress >= 100
+      ? "Completed"
+      : "Idle";
 
   const cards = [
     { label: "Total contacts", value: number(stats?.emails_total), detail: `${number(stats?.business_contacts)} business contacts`, icon: "contacts" as const, tone: "blue" },
-    { label: "Phones found", value: number(stats?.matched), detail: `${number(stats?.person_phones)} personal · ${number(stats?.company_phones)} company`, icon: "phone" as const, tone: "green" },
-    { label: "Success rate", value: `${success.toFixed(2)}%`, detail: `${number(stats?.completed)} contacts processed`, icon: "activity" as const, tone: "violet" },
+    { label: "Phones found", value: number(stats?.phones_found), detail: `${number(stats?.person_phones)} personal · ${number(stats?.company_phones)} company`, icon: "phone" as const, tone: "green" },
+    { label: "Success rate", value: `${success.toFixed(2)}%`, detail: `${number(stats?.business_contacts)} business contacts`, icon: "activity" as const, tone: "violet" },
     { label: "Countries", value: number(stats?.countries_total ?? countries.length), detail: `${number(stats?.public_email)} public-provider contacts`, icon: "globe" as const, tone: "orange" },
   ];
 
@@ -183,14 +201,14 @@ export default function DashboardPage() {
         <article className="v2Panel v2WorkerPanel">
           <div className="v2PanelHead">
             <div><span className="v2PanelEyebrow">DISCOVERY ENGINE</span><h2>Worker status</h2></div>
-            <span className={`v2StatusPill ${worker?.paused ? "paused" : "running"}`}><i />{worker?.paused ? "Paused" : "Running"}</span>
+            <span className={`v2StatusPill ${workerState.toLowerCase()}`}><i />{workerState}</span>
           </div>
           <div className="v2WorkerHero">
             <div className="v2ProgressRing" style={{ "--progress": `${Math.min(100, Math.max(0, progress)) * 3.6}deg` } as React.CSSProperties}>
               <div><strong>{progress.toFixed(1)}%</strong><span>processed</span></div>
             </div>
             <div className="v2WorkerStats">
-              <div><span>Processed</span><strong>{number(worker?.processed ?? stats?.completed)} / {number(worker?.total ?? stats?.emails_total)}</strong></div>
+              <div><span>Processed jobs</span><strong>{number(worker?.processed)} / {number(worker?.total)}</strong></div>
               <div><span>In progress</span><strong>{number(worker?.processing)}</strong></div>
               <div><span>Pending</span><strong>{number(worker?.pending ?? stats?.pending)}</strong></div>
               <div><span>Failed</span><strong>{number(worker?.failed ?? stats?.failed)}</strong></div>
@@ -234,9 +252,11 @@ export default function DashboardPage() {
         </article>
 
         <article className="v2Panel v2ActivityPanel">
-          <div className="v2PanelHead"><div><span className="v2PanelEyebrow">RECENT ACTIVITY</span><h2>Latest contact updates</h2></div><Link href="/contacts">Open contacts</Link></div>
+          <div className="v2PanelHead"><div><span className="v2PanelEyebrow">RECENT ACTIVITY</span><h2>Latest phone discoveries</h2></div><Link href="/contacts">Open contacts</Link></div>
           <div className="v2ActivityList">
-            {contacts.map((contact) => (
+            {contacts.length === 0 ? (
+              <div className="v2EmptyState">Recent matched contacts will appear here.</div>
+            ) : contacts.map((contact) => (
               <Link href={`/contacts?search=${encodeURIComponent(contact.email)}`} className="v2ActivityItem" key={contact.id}>
                 <span className={`v2ActivityIcon ${statusTone(contact.status)}`}><Icon name={contact.status === "MATCHED" ? "phone" : contact.status === "PUBLIC_EMAIL" ? "globe" : "contacts"} width={16}/></span>
                 <div><strong>{contact.email}</strong><span>{contact.phone ?? contact.domain}</span></div>
