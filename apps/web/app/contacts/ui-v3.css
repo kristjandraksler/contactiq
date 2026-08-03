@@ -370,3 +370,29 @@
     grid-template-columns: 1fr;
   }
 }
+/* ---------- Contacts action column ---------- */
+
+.ciContactsPage table{
+    min-width:1480px !important;
+}
+
+.ciContactsPage th:last-child,
+.ciContactsPage td:last-child{
+    width:170px;
+    min-width:170px;
+}
+
+.ciContactsPage td:last-child button,
+.ciContactsPage td:last-child .primaryButton{
+    width:145px;
+    justify-content:center;
+    white-space:nowrap;
+}
+
+.ciContactsPage .panel{
+    overflow-x:auto;
+}
+
+.ciContactsPage .tableWrapper{
+    overflow-x:auto;
+}
