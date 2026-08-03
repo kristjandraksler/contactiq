@@ -1,5 +1,7 @@
 "use client";
 
+import "./ui-v3.css";
+
 import {
   ChangeEvent,
   FormEvent,
@@ -1040,8 +1042,8 @@ export default function ContactsPage() {
   );
 
   return (
-    <>
-      <header className="pageHeader">
+    <div className="ciDataPage ciContactsPage">
+      <header className="pageHeader ciDataHeader">
         <div>
           <p className="eyebrow">KONTAKTI</p>
           <h1>Kontakti</h1>
@@ -1709,6 +1711,6 @@ export default function ContactsPage() {
       />
 
 
-    </>
+    </div>
   );
 }

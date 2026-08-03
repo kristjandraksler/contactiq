@@ -1,5 +1,7 @@
 "use client";
 
+import "./ui-v3.css";
+
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -77,7 +79,7 @@ export default function CompaniesPage() {
   }, [data]);
 
   return (
-    <div className="companiesV2Page">
+    <div className="companiesV2Page ciDataPage ciCompaniesPage">
       <header className="companiesV2Header">
         <div><p className="eyebrow">COMPANY INTELLIGENCE</p><h1>Podjetja</h1><p className="muted">Združen pogled kontaktov, telefonov, držav in uspešnosti po domenah.</p></div>
         <Link className="primaryButton" href="/import">Uvozi kontakte</Link>

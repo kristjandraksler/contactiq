@@ -1,0 +1,372 @@
+/* ContactIQ UI v3 — Contacts, Phones and Companies */
+
+.ciDataPage {
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 32px 38px 48px;
+  color: var(--v2-text, #121826);
+}
+
+.ciDataPage .pageHeader,
+.ciDataPage .companiesV2Header,
+.ciDataHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 20px;
+}
+
+.ciDataPage .pageHeader h1,
+.ciDataPage .companiesV2Header h1 {
+  margin: 3px 0 7px;
+  font-size: 30px;
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+}
+
+.ciDataPage .eyebrow {
+  color: var(--v2-primary, #3157e7);
+  font-size: 10px;
+  letter-spacing: 0.13em;
+}
+
+.ciDataPage .muted {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.ciDataPage .pageHeader > div:last-child {
+  display: flex !important;
+  align-items: center;
+  gap: 8px !important;
+}
+
+.ciDataPage button,
+.ciDataPage .primaryButton {
+  min-height: 39px;
+  border-radius: 9px;
+  padding: 0 13px;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.ciDataPage .primaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--v2-primary, #3157e7);
+  color: #fff;
+  text-decoration: none;
+}
+
+.ciDataPage .panel,
+.ciDataPage .companiesTablePanel {
+  width: 100%;
+  min-width: 0;
+  margin-top: 0;
+  overflow: hidden;
+  border: 1px solid var(--v2-line, #e7eaf0);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: var(--v2-shadow, 0 10px 30px rgba(19,29,57,.055));
+}
+
+.ciDataPage .panelTop,
+.ciDataPage .companiesToolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--v2-line, #e7eaf0);
+  background: #fff;
+}
+
+.ciDataPage .panelTop h2,
+.ciDataPage .companiesToolbar h2 {
+  margin: 0;
+  font-size: 16px;
+  letter-spacing: -0.02em;
+}
+
+.ciDataPage .filters,
+.ciDataPage .companiesFilters {
+  min-width: 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.ciDataPage .filters input,
+.ciDataPage .filters select,
+.ciDataPage .companiesFilters input,
+.ciDataPage .companiesFilters select {
+  width: auto;
+  min-width: 128px;
+  min-height: 38px;
+  border: 1px solid var(--v2-line, #e7eaf0);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #fff;
+  font-size: 11px;
+}
+
+.ciDataPage .filters input,
+.ciDataPage .companiesFilters input {
+  width: 220px;
+}
+
+.ciDataPage .filters label {
+  min-height: 38px;
+  padding: 0 9px;
+  border: 1px solid var(--v2-line, #e7eaf0);
+  border-radius: 8px;
+  background: #fafbfc;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.ciDataPage .filters label input[type="checkbox"] {
+  width: 14px;
+  min-width: 14px;
+  min-height: 14px;
+  margin: 0;
+}
+
+.ciDataPage .tableWrapper,
+.ciDataPage .companiesTableWrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 0;
+}
+
+.ciDataPage table,
+.ciDataPage .companiesTable {
+  width: 100%;
+  min-width: 1040px;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+
+.ciDataPage th,
+.ciDataPage td,
+.ciDataPage .companiesTable th,
+.ciDataPage .companiesTable td {
+  padding: 11px 12px;
+  border-bottom: 1px solid #edf0f4;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.ciDataPage th,
+.ciDataPage .companiesTable th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #fafbfc;
+  color: #7c8595;
+  font-size: 9px;
+  line-height: 1.25;
+  font-weight: 850;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ciDataPage td,
+.ciDataPage .companiesTable td {
+  color: #505969;
+  font-size: 11px;
+  line-height: 1.38;
+  white-space: nowrap;
+}
+
+.ciDataPage tbody tr:hover {
+  background: #fafbff;
+}
+
+.ciDataPage .emailCell,
+.ciDataPage td a {
+  color: var(--v2-text, #121826);
+  font-weight: 700;
+}
+
+.ciDataPage .emailCell {
+  display: block;
+  max-width: 230px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ciDataPage .statusBadge,
+.ciDataPage .companyStatus {
+  padding: 5px 8px;
+  font-size: 9px;
+}
+
+.ciDataPage .companyIdentity {
+  min-width: 190px;
+  gap: 9px;
+}
+
+.ciDataPage .companyAvatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  font-size: 11px;
+}
+
+.ciDataPage .companyIdentity strong {
+  font-size: 11px;
+}
+
+.ciDataPage .companyIdentity small,
+.ciDataPage .tableSubtext {
+  margin-top: 2px;
+  font-size: 9px;
+}
+
+.ciDataPage .successCell {
+  min-width: 82px;
+}
+
+.ciDataPage .successCell > span {
+  height: 4px;
+}
+
+.ciDataPage .paginationBar,
+.ciDataPage .companiesPagination {
+  min-height: 58px;
+  padding: 13px 18px;
+  border-top: 1px solid var(--v2-line, #e7eaf0);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--v2-muted, #6f7787);
+  font-size: 10px;
+}
+
+.ciDataPage .paginationButton,
+.ciDataPage .pageButton,
+.ciDataPage .companiesPagination button {
+  min-width: 34px;
+  min-height: 33px;
+  padding: 0 10px;
+  border: 1px solid var(--v2-line, #e7eaf0);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--v2-text, #121826);
+  font-size: 10px;
+}
+
+.ciDataPage .pageButtonActive {
+  border-color: var(--v2-primary, #3157e7);
+  background: var(--v2-primary, #3157e7);
+  color: #fff;
+}
+
+/* KPI row used by Companies */
+.ciDataPage .companiesKpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 13px;
+  margin-bottom: 17px;
+}
+
+.ciDataPage .companiesKpis article {
+  min-height: 105px;
+  padding: 17px;
+  border: 1px solid var(--v2-line, #e7eaf0);
+  border-radius: 13px;
+  background: #fff;
+  box-shadow: var(--v2-shadow, 0 10px 30px rgba(19,29,57,.055));
+  display: grid;
+  align-content: space-between;
+}
+
+.ciDataPage .companiesKpis span {
+  color: var(--v2-muted, #6f7787);
+  font-size: 10px;
+  letter-spacing: 0.07em;
+}
+
+.ciDataPage .companiesKpis strong {
+  font-size: 25px;
+  letter-spacing: -0.035em;
+}
+
+/* Keep complex Contacts/Phones tables usable without stretching the page */
+.ciContactsPage table,
+.ciPhonesPage table {
+  min-width: 1320px;
+}
+
+.ciPhonesPage .callSummaryButton,
+.ciPhonesPage .ghostButton,
+.ciContactsPage .smallButton {
+  min-height: 31px;
+  padding: 0 9px;
+  border-radius: 7px;
+  font-size: 9px;
+}
+
+@media (max-width: 1180px) {
+  .ciDataPage {
+    padding: 26px 24px 42px;
+  }
+
+  .ciDataPage .panelTop,
+  .ciDataPage .companiesToolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .ciDataPage .filters,
+  .ciDataPage .companiesFilters {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 820px) {
+  .ciDataPage {
+    padding: 22px 15px 36px;
+  }
+
+  .ciDataPage .pageHeader,
+  .ciDataPage .companiesV2Header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .ciDataPage .pageHeader > div:last-child,
+  .ciDataPage .pageHeader button,
+  .ciDataPage .primaryButton {
+    width: 100%;
+  }
+
+  .ciDataPage .companiesKpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ciDataPage .filters input,
+  .ciDataPage .filters select,
+  .ciDataPage .companiesFilters input,
+  .ciDataPage .companiesFilters select,
+  .ciDataPage .filters button,
+  .ciDataPage .companiesFilters button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .ciDataPage .companiesKpis {
+    grid-template-columns: 1fr;
+  }
+}
