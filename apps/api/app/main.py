@@ -11,6 +11,7 @@ from app.routes.leads import router as leads_router
 from app.routes.admin_worker import router as admin_worker_router
 from app.routes.public_providers import router as public_providers_router
 from app.services.providers import refresh_public_email_domains
+from app.routes.call_log import router as call_log_router
 
 app = FastAPI(
     title="ContactIQ API",
@@ -25,7 +26,7 @@ app.include_router(companies_router)
 app.include_router(leads_router)
 app.include_router(system_router)
 app.include_router(admin_worker_router)
-
+app.include_router(call_log_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
