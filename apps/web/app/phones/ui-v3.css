@@ -370,3 +370,30 @@
     grid-template-columns: 1fr;
   }
 }
+.ciPhonesPage,
+.ciContactsPage,
+.ciCompaniesPage{
+    width:100%;
+    max-width:calc(100vw - 280px);
+    margin:0 auto;
+}
+
+.ciPhonesPage .panel,
+.ciContactsPage .panel,
+.ciCompaniesPage .panel{
+    overflow:hidden;
+}
+
+.ciPhonesPage .tableWrapper,
+.ciContactsPage .tableWrapper,
+.ciCompaniesPage .tableWrapper{
+    width:100%;
+    overflow-x:auto;
+}
+
+.ciPhonesPage table,
+.ciContactsPage table,
+.ciCompaniesPage table{
+    width:max-content;
+    min-width:100%;
+}

@@ -1,5 +1,5 @@
 "use client";
-
+import "./ui-v3.css";
 import "./call-summaries.css";
 import CallSummaryDrawer from "./CallSummaryDrawer";
 
@@ -695,7 +695,7 @@ export default function PhonesPage() {
   );
 
   return (
-    <>
+  <div className="ciDataPage ciPhonesPage">
       <header className="pageHeader">
         <div>
           <p className="eyebrow">LEAD CENTER</p>
@@ -1199,12 +1199,12 @@ export default function PhonesPage() {
         )}
       </section>
 
-      {selectedCallLead && (
+        {selectedCallLead && (
         <CallSummaryDrawer
           lead={selectedCallLead}
           onClose={() => setSelectedCallLead(null)}
         />
       )}
-    </>
+    </div>
   );
 }
