@@ -154,6 +154,122 @@ async def _process_logged_job(
         )
 
 
+def _list_worker_jobs(
+    *,
+    status: str | None = None,
+    limit: int = 25,
+) -> list[dict[str, Any]]:
+    supabase = get_supabase()
+
+    query = (
+        supabase.table("domain_jobs")
+        .select(
+            (
+                "id,domain,status,attempts,worker_id,started_at,finished_at,"
+                "next_retry_at,last_error,processed_contacts,total_contacts,"
+                "created_at,updated_at"
+            )
+        )
+    )
+
+    if status:
+        query = query.eq("status", status)
+
+    response = (
+        query
+        .order("updated_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+
+    return response.data or []
+
+
+def _worker_center_payload() -> dict[str, Any]:
+    status = _read_status()
+
+    active_jobs = _list_worker_jobs(
+        status="PROCESSING",
+        limit=25,
+    )
+    pending_jobs = _list_worker_jobs(
+        status="PENDING",
+        limit=25,
+    )
+    failed_jobs = _list_worker_jobs(
+        status="FAILED",
+        limit=25,
+    )
+
+    recent_response = (
+        get_supabase()
+        .table("domain_jobs")
+        .select(
+            (
+                "id,domain,status,attempts,worker_id,started_at,finished_at,"
+                "next_retry_at,last_error,processed_contacts,total_contacts,"
+                "created_at,updated_at"
+            )
+        )
+        .in_(
+            "status",
+            ["MATCHED", "NOT_FOUND", "FAILED"],
+        )
+        .order("updated_at", desc=True)
+        .limit(20)
+        .execute()
+    )
+
+    active_contacts = sum(
+        int(job.get("total_contacts") or 0)
+        for job in active_jobs
+    )
+    active_processed = sum(
+        int(job.get("processed_contacts") or 0)
+        for job in active_jobs
+    )
+
+    return {
+        "worker": {
+            **status,
+            "state": (
+                "paused"
+                if status.get("paused")
+                else "running"
+                if int(status.get("processing") or 0) > 0
+                else "queued"
+                if int(status.get("pending") or 0) > 0
+                else "completed"
+                if (
+                    int(status.get("total") or 0) > 0
+                    and float(status.get("progress_percent") or 0) >= 100
+                )
+                else "idle"
+            ),
+        },
+        "summary": {
+            "active_contacts": active_contacts,
+            "active_processed": active_processed,
+            "queue_health_percent": (
+                round(
+                    (
+                        int(status.get("processed") or 0)
+                        / int(status.get("total") or 1)
+                    )
+                    * 100,
+                    2,
+                )
+                if int(status.get("total") or 0) > 0
+                else 100.0
+            ),
+        },
+        "active_jobs": active_jobs,
+        "pending_jobs": pending_jobs,
+        "failed_jobs": failed_jobs,
+        "recent_jobs": recent_response.data or [],
+    }
+
+
 @router.get("/status")
 def worker_status() -> dict[str, Any]:
     try:
@@ -317,6 +433,68 @@ def requeue_stale_worker_jobs(
                 "Stale opravil ni bilo mogoče ponovno dodati: "
                 f"{exc}"
             ),
+        ) from exc
+
+
+@router.get("/center")
+def worker_center() -> dict[str, Any]:
+    try:
+        return _worker_center_payload()
+    except Exception as exc:
+        logger.exception("WORKER_CENTER_LOAD_FAILED")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Worker Centra ni bilo mogoče naložiti: {exc}",
+        ) from exc
+
+
+@router.post("/jobs/{job_id}/retry")
+def retry_worker_job(
+    job_id: str,
+) -> dict[str, Any]:
+    try:
+        response = (
+            get_supabase()
+            .table("domain_jobs")
+            .update(
+                {
+                    "status": "PENDING",
+                    "attempts": 0,
+                    "worker_id": None,
+                    "started_at": None,
+                    "finished_at": None,
+                    "next_retry_at": None,
+                    "last_error": None,
+                }
+            )
+            .eq("id", job_id)
+            .execute()
+        )
+
+        rows = response.data or []
+
+        if not rows:
+            raise HTTPException(
+                status_code=404,
+                detail="Worker opravilo ni bilo najdeno.",
+            )
+
+        return {
+            "status": "ok",
+            "job": rows[0],
+            "worker_center": _worker_center_payload(),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception(
+            "WORKER_JOB_RETRY_FAILED job_id=%s",
+            job_id,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Opravila ni bilo mogoče ponoviti: {exc}",
         ) from exc
 
 
