@@ -1,5 +1,7 @@
 "use client";
 
+import "./worker-center-styles.css";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 const API_URL =
