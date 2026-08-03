@@ -370,3 +370,120 @@
     grid-template-columns: 1fr;
   }
 }
+/* =========================================================
+   Final width and table alignment fixes
+   ========================================================= */
+
+/* Vse tri strani naj uporabijo celotno širino prostora ob sidebarju */
+.ciDataPage,
+.ciPhonesPage,
+.ciContactsPage,
+.ciCompaniesPage {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+
+/* Panel ne sme povečati širine strani */
+.ciDataPage .panel,
+.ciDataPage .companiesTablePanel {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Horizontalni premik ostane samo znotraj tabele */
+.ciDataPage .tableWrapper,
+.ciDataPage .companiesTableWrap {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+/* Contacts in Phones uporabljata enako vedenje tabele */
+.ciPhonesPage table,
+.ciContactsPage table {
+  width: max-content;
+  min-width: 100%;
+  table-layout: auto;
+}
+
+/* Companies ima manj stolpcev in lahko zapolni panel */
+.ciCompaniesPage table,
+.ciCompaniesPage .companiesTable {
+  width: 100%;
+  min-width: 1040px;
+}
+
+/* Kompaktnejši Contacts stolpci */
+.ciContactsPage th,
+.ciContactsPage td {
+  padding-right: 10px;
+  padding-left: 10px;
+}
+
+/* E-mail ne sme po nepotrebnem širiti tabele */
+.ciContactsPage .emailCell {
+  width: 190px;
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Zadnji stolpec mora vedno prikazati cel gumb */
+.ciContactsPage th:last-child,
+.ciContactsPage td:last-child {
+  width: 120px;
+  min-width: 120px;
+  padding-right: 14px;
+  white-space: nowrap;
+}
+
+/* Poišči telefon naj bo enak gumbom na Phones strani */
+.ciContactsPage td:last-child button,
+.ciContactsPage td:last-child .smallButton {
+  width: auto;
+  min-width: 104px;
+  min-height: 31px;
+  padding: 0 9px;
+  border-radius: 7px;
+  font-size: 9px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* Akcijski elementi naj se ne odrežejo */
+.ciContactsPage td:last-child > div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: max-content;
+}
+
+/* Scrollbar ostane neposredno pod tabelo */
+.ciContactsPage .tableWrapper,
+.ciPhonesPage .tableWrapper {
+  scrollbar-gutter: stable;
+}
+
+@media (max-width: 1180px) {
+  .ciDataPage {
+    padding-right: 24px;
+    padding-left: 24px;
+  }
+}
+
+@media (max-width: 820px) {
+  .ciDataPage {
+    padding-right: 15px;
+    padding-left: 15px;
+  }
+
+  .ciContactsPage table,
+  .ciPhonesPage table {
+    min-width: 1280px;
+  }
+}
