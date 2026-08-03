@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
+
+import AppShell from "@/components/auth/AppShell";
+import AuthProvider from "@/components/auth/AuthProvider";
 
 export const metadata: Metadata = {
   title: "ContactIQ — Contact Intelligence",
@@ -13,10 +16,9 @@ export default function RootLayout({
   return (
     <html lang="sl">
       <body>
-        <main className="shell">
-          <Sidebar />
-          <section className="content">{children}</section>
-        </main>
+        <AuthProvider>
+          <AppShell>{children}</AppShell>
+        </AuthProvider>
       </body>
     </html>
   );

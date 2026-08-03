@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { useAuth } from "./auth/AuthProvider";
 import { Icon } from "./ui/Icon";
 
 const primary = [
@@ -25,17 +26,10 @@ type NavItemProps = {
   icon: Parameters<typeof Icon>[0]["name"];
 };
 
-function NavItem({
-  href,
-  label,
-  icon,
-}: NavItemProps) {
+function NavItem({ href, label, icon }: NavItemProps) {
   const pathname = usePathname();
-
   const active =
-    href === "/"
-      ? pathname === "/"
-      : pathname.startsWith(href);
+    href === "/" ? pathname === "/" : pathname.startsWith(href);
 
   return (
     <Link
@@ -49,42 +43,45 @@ function NavItem({
 }
 
 export default function Sidebar() {
+  const { user, profile, loading, signOut } = useAuth();
+
+  const displayName =
+    profile?.full_name ||
+    user?.email?.split("@")[0] ||
+    "ContactIQ user";
+
   return (
     <aside className="v2Sidebar">
       <div className="v2SidebarHead">
         <Link href="/" className="v2Brand">
           <span className="v2BrandMark">CI</span>
-
           <span>
             Contact<strong>IQ</strong>
           </span>
         </Link>
-
-        <span className="v2Environment">
-          Internal
-        </span>
+        <span className="v2Environment">Internal</span>
       </div>
 
       <nav className="v2Nav">
         <p>Workspace</p>
 
         {primary.map((item) => (
-          <NavItem
-            key={item.href}
-            {...item}
-          />
+          <NavItem key={item.href} {...item} />
         ))}
 
-        <p className="v2NavSection">
-          Manage
-        </p>
+        <p className="v2NavSection">Manage</p>
 
         {secondary.map((item) => (
-          <NavItem
-            key={item.href}
-            {...item}
-          />
+          <NavItem key={item.href} {...item} />
         ))}
+
+        {profile?.role === "admin" && (
+          <NavItem
+            href="/users"
+            label="Users"
+            icon="contacts"
+          />
+        )}
       </nav>
 
       <div className="v2SidebarFooter">
@@ -93,21 +90,27 @@ export default function Sidebar() {
             <span>Database</span>
             <strong>Live</strong>
           </div>
-
           <div className="v2UsageTrack">
             <span />
           </div>
-
-          <small>
-            Contact intelligence workspace
-          </small>
+          <small>Contact intelligence workspace</small>
         </div>
 
-        <div className="v2Profile">
+        <div className="v2Profile authProfile">
           <div>
-            <strong>Administrator</strong>
-            <small>ContactIQ workspace</small>
+            <strong>{loading ? "Loading …" : displayName}</strong>
+            <small>
+              {profile?.role === "admin" ? "Administrator" : "User"}
+            </small>
           </div>
+
+          <button
+            type="button"
+            className="sidebarLogout"
+            onClick={() => void signOut()}
+          >
+            Logout
+          </button>
         </div>
       </div>
     </aside>
