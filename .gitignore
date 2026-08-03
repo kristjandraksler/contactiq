@@ -7,3 +7,9 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .DS_Store
+
+# Local ContactIQ files
+logs/
+*.log
+*.zip
+tree.txt

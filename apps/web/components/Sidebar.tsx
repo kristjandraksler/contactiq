@@ -9,6 +9,7 @@ const primary = [
   { href: "/contacts", label: "Contacts", icon: "contacts" as const },
   { href: "/companies", label: "Companies", icon: "company" as const },
   { href: "/phones", label: "Phone discovery", icon: "phone" as const },
+  { href: "/calls", label: "call log", icon: "phones" as const },
   { href: "/jobs", label: "Worker", icon: "discovery" as const },
 ];
 
