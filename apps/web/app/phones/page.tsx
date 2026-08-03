@@ -1,5 +1,8 @@
 "use client";
 
+import "./call-summaries.css";
+import CallSummaryDrawer from "./CallSummaryDrawer";
+
 import {
   ChangeEvent,
   FormEvent,
@@ -435,6 +438,7 @@ function CrossBorderBadge() {
 
 export default function PhonesPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [selectedCallLead, setSelectedCallLead] = useState<Lead | null>(null);
 
   const [pagination, setPagination] =
     useState<Pagination>({
@@ -1065,6 +1069,14 @@ export default function PhonesPage() {
                           >
                             Kopiraj e-mail
                           </button>
+
+                          <button
+                            type="button"
+                            className="callSummaryButton"
+                            onClick={() => setSelectedCallLead(lead)}
+                          >
+                            Povzetek klica
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -1186,6 +1198,13 @@ export default function PhonesPage() {
           </>
         )}
       </section>
+
+      {selectedCallLead && (
+        <CallSummaryDrawer
+          lead={selectedCallLead}
+          onClose={() => setSelectedCallLead(null)}
+        />
+      )}
     </>
   );
 }
