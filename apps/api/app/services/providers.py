@@ -157,6 +157,72 @@ NAME_SEPARATOR_RE = re.compile(r"[._+\-\s]+")
 NON_LETTER_RE = re.compile(r"[^a-zA-ZÀ-ž]+")
 
 
+NOISY_LOCAL_PART_TOKENS = {
+    "admin", "mail", "email", "test", "user", "unknown", "guest",
+    "support", "contact", "office", "info", "sales", "service",
+    "hello", "jobs", "career", "booking", "team",
+    "gamer", "gaming", "dragon", "killer", "queen", "king",
+}
+
+NOISY_LOCAL_PART_RE = re.compile(
+    r"^(?:\d+|[a-z]{1,2}\d{3,}|\d{3,}[a-z]{1,2}|.*(?:xx|xxx|lol|test).*)$",
+    re.IGNORECASE,
+)
+
+
+def public_email_is_researchable(value: str) -> bool:
+    """
+    Conservative quality gate for public-mailbox research.
+
+    Returns False for generic aliases, mostly numeric local parts and obvious
+    nicknames that are unlikely to represent a real person.
+    """
+    email = value.strip().lower()
+    local_part = email.split("@", 1)[0].split("+", 1)[0]
+
+    if not local_part or len(local_part) < 4:
+        return False
+
+    normalized = NON_LETTER_RE.sub("", local_part)
+
+    if len(normalized) < 4:
+        return False
+
+    if local_part in GENERIC_LOCAL_PARTS:
+        return False
+
+    if NOISY_LOCAL_PART_RE.match(local_part):
+        return False
+
+    raw_tokens = [
+        token
+        for token in NAME_SEPARATOR_RE.split(local_part)
+        if token
+    ]
+
+    cleaned_tokens = [
+        NON_LETTER_RE.sub("", token)
+        for token in raw_tokens
+    ]
+
+    cleaned_tokens = [
+        token
+        for token in cleaned_tokens
+        if token
+    ]
+
+    if any(token in NOISY_LOCAL_PART_TOKENS for token in cleaned_tokens):
+        return False
+
+    letters = sum(char.isalpha() for char in local_part)
+    digits = sum(char.isdigit() for char in local_part)
+
+    if digits > letters:
+        return False
+
+    return True
+
+
 @dataclass(frozen=True)
 class EmailPersonHint:
     email: str
@@ -236,6 +302,18 @@ def extract_person_hint_from_email(
 
     if full_name:
         terms.append(full_name)
+
+        if first_name and last_name:
+            terms.append(f"{last_name} {first_name}")
+
+    spaced_local = " ".join(tokens)
+
+    if (
+        spaced_local
+        and spaced_local != local_part
+        and not is_generic
+    ):
+        terms.append(spaced_local)
 
     return EmailPersonHint(
         email=email,

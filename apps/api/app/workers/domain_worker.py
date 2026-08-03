@@ -424,6 +424,27 @@ async def _process_public_contact(
         and result.phone
     )
 
+    if not matched:
+        result = FinderResult(
+            status=result.status,
+            website=None,
+            phone=None,
+            confidence=None,
+            source_url=None,
+            pages_scanned=result.pages_scanned,
+            scan_duration_ms=result.scan_duration_ms,
+            candidates=result.candidates,
+            error=result.error,
+            confidence_label=result.confidence_label,
+        )
+
+        if result.error:
+            logger.info(
+                "PUBLIC_EMAIL_SKIPPED email=%s reason=%s",
+                email,
+                result.error,
+            )
+
     phone_country = detect_phone_country(result.phone)
     country = phone_country if matched else detect_phone_country(None)
 
