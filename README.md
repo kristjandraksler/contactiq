@@ -1,55 +1,112 @@
-# ContactIQ Worker v2
+# ContactIQ Auth + Users
 
-Paket vsebuje:
+Paket doda:
 
-- `apps/api/app/routes/admin_worker.py`
-- `apps/api/app/workers/domain_worker.py`
-- `run_all_domains.ps1`
+- Supabase email/password login;
+- zaščito vseh frontend strani prek `proxy.ts`;
+- login brez sidebarja;
+- ohranitev seje v piškotkih;
+- logout;
+- tabelo `profiles`;
+- vlogi `admin` in `user`;
+- admin stran `/users`;
+- ustvarjanje uporabnikov na frontendu;
+- spremembo vloge;
+- aktivacijo/deaktivacijo;
+- prikaz prijavljenega uporabnika v sidebarju.
 
-## Kaj doda
+## 1. Razpakiranje
 
-- endpoint `POST /admin/worker/requeue-stale`;
-- samodejni requeue zataknjenih `PROCESSING` jobov;
-- retry pri 502, 503, timeoutih in resetih povezave;
-- eksponentno čakanje po napakah;
-- hitrost, ETA in podrobnejši napredek;
-- log datoteko v `logs/`;
-- nastavljiv batch size.
+Razpakiraj ZIP v koren projekta in prepiši obstoječe datoteke.
 
-## Namestitev
-
-Zamenjaj tri datoteke in nato iz korena projekta:
-
-```powershell
-git add .\apps\api\app\routes\admin_worker.py
-git add .\apps\api\app\workers\domain_worker.py
-git add .\run_all_domains.ps1
-git commit -m "Add resilient worker v2"
-git push origin main
-```
-
-Po Render deployu preveri endpoint:
+## 2. Namesti pakete
 
 ```powershell
-Invoke-RestMethod `
-  -Method Post `
-  -Uri "https://contactiq-5w9n.onrender.com/admin/worker/requeue-stale?stale_minutes=10"
+cd .\apps\web
+npm install
+cd ..\..
 ```
 
-Zagon z varnimi privzetimi vrednostmi:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\run_all_domains.ps1
-```
-
-Zagon z večjim batchom:
+## 3. Dodaj auth CSS v globals.css
 
 ```powershell
 powershell -ExecutionPolicy Bypass `
-  -File .\run_all_domains.ps1 `
-  -BatchSize 10 `
-  -SleepSeconds 3 `
-  -StallMinutes 10
+  -File .\install-auth.ps1
 ```
 
-Za Render, ki je že vračal 502, začni z `BatchSize 5`. Povečaj na 10 šele po stabilnem testu.
+## 4. Supabase SQL
+
+V Supabase SQL Editorju zaženi:
+
+```text
+apps/api/migrations/20260803_auth_profiles.sql
+```
+
+Nato ustvari prvega uporabnika v:
+
+```text
+Authentication → Users → Add user
+```
+
+Po ustvarjanju ga promoviraj v admina:
+
+```sql
+update public.profiles
+set role = 'admin'
+where email = 'TVOJ-EMAIL';
+```
+
+## 5. Environment variables
+
+### Vercel
+
+```text
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+NEXT_PUBLIC_API_URL
+```
+
+Če imaš star `anon` ključ, lahko namesto publishable uporabiš:
+
+```text
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+```
+
+### Render
+
+Backend že uporablja:
+
+```text
+SUPABASE_URL
+SUPABASE_SERVICE_ROLE_KEY
+```
+
+Service role ključ nikoli ne dodajaj v Vercel frontend environment.
+
+## 6. Commit
+
+```powershell
+git add .\apps\web\package.json
+git add .\apps\web\package-lock.json
+git add .\apps\web\proxy.ts
+git add .\apps\web\lib\supabase
+git add .\apps\web\components\auth
+git add .\apps\web\components\Sidebar.tsx
+git add .\apps\web\app\layout.tsx
+git add .\apps\web\app\globals.css
+git add .\apps\web\app\login
+git add .\apps\web\app\users
+git add .\apps\api\app\routes\users.py
+git add .\apps\api\app\main.py
+git add .\apps\api\migrations\20260803_auth_profiles.sql
+git add .\.env.example
+
+git commit -m "Add Supabase auth and user management"
+git push origin main
+```
+
+## Pomembno
+
+Frontend strani so zaščitene z loginom. Admin endpoint `/admin/users` preverja Supabase access token in admin vlogo.
+
+Obstoječi poslovni API endpointi (`/contacts`, `/companies`, `/leads` ...) v tem paketu še niso vsi preklopljeni na preverjanje access tokena, ker bi bilo treba hkrati posodobiti vse obstoječe `fetch` klice. Zato login prepreči dostop skozi aplikacijo, neposredna zaščita celotnega API-ja pa je ločena naslednja varnostna faza.

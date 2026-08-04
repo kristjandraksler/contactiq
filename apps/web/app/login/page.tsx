@@ -1,14 +1,14 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { useSearchParams } from "next/navigation";
+
 
 import { createClient } from "@/lib/supabase/client";
 
 import "./login.css";
 
 export default function LoginPage() {
-  const searchParams = useSearchParams();
+  
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -33,9 +33,7 @@ export default function LoginPage() {
         throw loginError;
       }
 
-      const next = searchParams.get("next");
-      window.location.href =
-        next && next.startsWith("/") ? next : "/";
+      window.location.href = "/";
     } catch (err) {
       setError(
         err instanceof Error
