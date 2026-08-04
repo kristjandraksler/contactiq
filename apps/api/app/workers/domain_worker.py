@@ -322,6 +322,93 @@ def classify_public_domain_without_research(
     )
 
 
+def _identity_status(result: FinderResult) -> str:
+    if result.error:
+        return "FAILED"
+
+    if result.status == "MATCHED" and result.phone:
+        return (
+            "VERIFIED"
+            if int(result.confidence or 0) >= 75
+            else "NEEDS_REVIEW"
+        )
+
+    return "NOT_FOUND"
+
+
+def _identity_person_name(result: FinderResult) -> str | None:
+    for candidate in result.candidates or []:
+        person_name = candidate.get("person_name")
+        if person_name:
+            return str(person_name)
+
+    return None
+
+
+def _identity_evidence(result: FinderResult) -> list[str]:
+    evidence: list[str] = []
+
+    for candidate in result.candidates or []:
+        for key in ("strengths", "evidence", "warnings"):
+            values = candidate.get(key) or []
+
+            if isinstance(values, str):
+                values = [values]
+
+            for value in values:
+                cleaned = str(value).strip()
+
+                if cleaned and cleaned not in evidence:
+                    evidence.append(cleaned)
+
+                if len(evidence) >= 20:
+                    return evidence
+
+    if result.error:
+        evidence.append(f"Error: {result.error}")
+
+    return evidence[:20]
+
+
+def save_identity_result(
+    email: str,
+    result: FinderResult,
+) -> None:
+    now = utc_now_iso()
+    status = _identity_status(result)
+
+    record = {
+        "id": str(uuid.uuid4()),
+        "email": email.strip().lower(),
+        "status": status,
+        "person_name": _identity_person_name(result),
+        "company_name": None,
+        "company_domain": result.website,
+        "phone": result.phone,
+        "phone_type": (
+            "direct_business"
+            if result.phone
+            and status in {"VERIFIED", "NEEDS_REVIEW"}
+            else None
+        ),
+        "confidence": int(result.confidence or 0),
+        "source_url": result.source_url,
+        "evidence": _identity_evidence(result),
+        "created_at": now,
+        "updated_at": now,
+    }
+
+    (
+        get_supabase()
+        .table("email_identity_results")
+        .upsert(
+            record,
+            on_conflict="email",
+        )
+        .execute()
+    )
+
+
 def _payload(
     result: FinderResult,
     company_id: str | None,
@@ -456,16 +543,30 @@ async def _process_public_contact(
     country = phone_country if matched else detect_phone_country(None)
 
     await asyncio.to_thread(
+        save_identity_result,
+        email,
+        result,
+    )
+
+    contact_payload = _payload(
+        result,
+        None,
+        int(contact.get("scan_attempts") or 0) + 1,
+        country,
+        phone_country,
+        "public_person" if matched else "public_email",
+    )
+    contact_payload.update(
+        {
+            "identity_status": _identity_status(result).lower(),
+            "identity_checked_at": utc_now_iso(),
+        }
+    )
+
+    await asyncio.to_thread(
         update_contact,
         str(contact["id"]),
-        _payload(
-            result,
-            None,
-            int(contact.get("scan_attempts") or 0) + 1,
-            country,
-            phone_country,
-            "public_person" if matched else "public_email",
-        ),
+        contact_payload,
     )
 
     logger.info(
