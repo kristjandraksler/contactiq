@@ -701,8 +701,8 @@ export default function PhonesPage() {
           <p className="eyebrow">LEAD CENTER</p>
           <h1>Phones</h1>
           <p className="muted">
-            Pregled vseh kontaktov z najdeno
-            telefonsko številko.
+            View all contacts with the found
+phone number.
           </p>
         </div>
 
@@ -737,11 +737,11 @@ export default function PhonesPage() {
       <section className="panel pagePanel">
         <div className="panelTop contactsPanelTop">
           <div>
-            <h2>Najdeni telefoni</h2>
+            <h2>Phones found</h2>
 
             <p className="muted">
-              Skupaj{" "}
-              {formatNumber(pagination.total)} rezultatov.
+              Total{" "}
+              {formatNumber(pagination.total)} results.
             </p>
           </div>
 
@@ -755,28 +755,28 @@ export default function PhonesPage() {
               onChange={(event) =>
                 setSearchInput(event.target.value)
               }
-              placeholder="Išči po telefonu, e-mailu ali domeni"
-              aria-label="Išči telefone"
+              placeholder="Search by phone, email or domain"
+              aria-label="Search phones"
             />
 
             <select
               value={confidenceMin}
               onChange={handleConfidenceChange}
-              aria-label="Najnižji confidence"
+              aria-label="Lowest confidence"
             >
-              <option value="">Vsi confidence</option>
-              <option value="40">40% ali več</option>
-              <option value="50">50% ali več</option>
-              <option value="70">70% ali več</option>
-              <option value="90">90% ali več</option>
+              <option value="">All confidence</option>
+              <option value="40">40% or more</option>
+              <option value="50">50% or more</option>
+              <option value="70">70% or more</option>
+              <option value="90">90% or more</option>
             </select>
 
             <select
               value={companyCountry}
               onChange={handleCompanyCountryChange}
-              aria-label="Filtriraj po državi podjetja"
+              aria-label="Filter by company country"
             >
-              <option value="">Vse države podjetij</option>
+              <option value="">All company countries</option>
 
               {companyCountries.map((item) => (
                 <option key={item.code} value={item.code}>
@@ -789,9 +789,9 @@ export default function PhonesPage() {
             <select
               value={phoneCountry}
               onChange={handlePhoneCountryChange}
-              aria-label="Filtriraj po državi telefona"
+              aria-label="Filter by phone country"
             >
-              <option value="">Vse države telefonov</option>
+              <option value="">All phone countries</option>
 
               {phoneCountries.map((item) => (
                 <option key={item.code} value={item.code}>
@@ -816,11 +816,11 @@ export default function PhonesPage() {
                   setPage(1);
                 }}
               />
-              Samo cross-border
+              Cross-border only
             </label>
 
             <button type="submit" disabled={loading}>
-              Išči
+            Search
             </button>
 
             {(activeSearch ||
@@ -833,7 +833,7 @@ export default function PhonesPage() {
                 className="ghostButton"
                 onClick={clearFilters}
               >
-                Počisti
+                Clear
               </button>
             )}
           </form>
@@ -843,7 +843,7 @@ export default function PhonesPage() {
           <div className="alert alertError panelAlert">
             <div>
               <strong>
-                Telefonov ni bilo mogoče prikazati.
+                Phones could not be displayed.
               </strong>
 
               <p>{error}</p>
@@ -854,7 +854,7 @@ export default function PhonesPage() {
               className="smallButton"
               onClick={() => void loadPhones()}
             >
-              Poskusi znova
+              Try again.
             </button>
           </div>
         )}
@@ -862,15 +862,14 @@ export default function PhonesPage() {
         {loading ? (
           <div className="stateMessage largeState">
             <div className="spinner" />
-            <p>Nalaganje telefonov …</p>
+            <p>Loading phones...</p>
           </div>
         ) : leads.length === 0 ? (
           <div className="stateMessage largeState">
-            <h3>Ni rezultatov</h3>
+            <h3>No results</h3>
 
             <p>
-              Za izbrane filtre ni bilo mogoče najti
-              telefonov.
+              No phones could be found for the selected filters.
             </p>
 
             {(activeSearch ||
@@ -883,7 +882,7 @@ export default function PhonesPage() {
                 className="secondaryButton"
                 onClick={clearFilters}
               >
-                Počisti filtre
+                Clear filters
               </button>
             )}
           </div>
@@ -893,17 +892,17 @@ export default function PhonesPage() {
               <table>
                 <thead>
                   <tr>
-                    <th>Telefon</th>
+                    <th>Phone</th>
                     <th>E-mail</th>
-                    <th>Domena</th>
-                    <th>Država podjetja</th>
-                    <th>Država telefona</th>
+                    <th>Domain</th>
+                    <th>Company country</th>
+                    <th>Phone country</th>
                     <th>Confidence</th>
-                    <th>Tip</th>
+                    <th>Type</th>
                     <th>Status</th>
-                    <th>Vir</th>
-                    <th>Zadnja obdelava</th>
-                    <th>Akcije</th>
+                    <th>Source</th>
+                    <th>Last processing</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
 
@@ -1054,7 +1053,7 @@ export default function PhonesPage() {
                                 )
                               }
                             >
-                              Kopiraj telefon
+                              Copy phone
                             </button>
                           )}
 
@@ -1067,7 +1066,7 @@ export default function PhonesPage() {
                               )
                             }
                           >
-                            Kopiraj e-mail
+                           Copy e-mail
                           </button>
 
                           <button
@@ -1075,7 +1074,7 @@ export default function PhonesPage() {
                             className="callSummaryButton"
                             onClick={() => setSelectedCallLead(lead)}
                           >
-                            Povzetek klica
+                            Call summary
                           </button>
                         </div>
                       </td>
@@ -1116,7 +1115,7 @@ export default function PhonesPage() {
                   }}
                 >
                   <span className="muted">
-                    Na stran:
+                    To the site:
                   </span>
 
                   <select
@@ -1152,7 +1151,7 @@ export default function PhonesPage() {
                     )
                   }
                 >
-                  Prejšnja
+                  Previous
                 </button>
 
                 <div className="pageNumbers">
@@ -1191,7 +1190,7 @@ export default function PhonesPage() {
                     )
                   }
                 >
-                  Naslednja
+                  Next
                 </button>
               </div>
             </div>

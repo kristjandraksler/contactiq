@@ -219,10 +219,9 @@ export default function JobsPage() {
       <header className="workerCenterHeader">
         <div>
           <p className="eyebrow">WORKER CENTER</p>
-          <h1>Obdelava in čakalna vrsta</h1>
+          <h1>Processing and Queue</h1>
           <p className="muted">
-            Spremljaj aktivne domene, upravljaj workerja in ponovno
-            zaženi neuspešna opravila.
+            Monitor active domains, manage workers, and restart failed jobs.
           </p>
         </div>
 
@@ -248,7 +247,7 @@ export default function JobsPage() {
               }
               disabled={action !== null}
             >
-              {action === "resume" ? "Nadaljujem…" : "Nadaljuj worker"}
+              {action === "resume" ? "I continue…" : "Continue working"}
             </button>
           ) : (
             <button
@@ -262,7 +261,7 @@ export default function JobsPage() {
               }
               disabled={action !== null}
             >
-              {action === "pause" ? "Ustavljam…" : "Ustavi worker"}
+              {action === "pause" ? "I'm stopping..." : "Stop worker"}
             </button>
           )}
         </div>
@@ -279,11 +278,11 @@ export default function JobsPage() {
           <span className={`workerStateDot ${state}`} />
           <div>
             <span className="workerSectionLabel">
-              TRENUTNO STANJE
+              CURRENT STATUS
             </span>
             <h2>{stateLabel(state)}</h2>
             <p className="muted">
-              Samodejna osvežitev vsakih 5 sekund.
+              Automatic refresh every 5 seconds.
             </p>
           </div>
         </div>
@@ -292,7 +291,7 @@ export default function JobsPage() {
           <strong>
             {(worker?.progress_percent ?? 0).toFixed(1)}%
           </strong>
-          <span>zaključeno</span>
+          <span>completed</span>
         </div>
 
         <div className="workerProgressTrack">
@@ -319,9 +318,9 @@ export default function JobsPage() {
 
       <section className="workerControlBar panel">
         <div>
-          <h2>Hitra dejanja</h2>
+          <h2>Quick actions</h2>
           <p className="muted">
-            Upravljanje čakalne vrste brez PowerShella.
+            Managing a queue without PowerShell.
           </p>
         </div>
 
@@ -349,7 +348,7 @@ export default function JobsPage() {
             }
             disabled={action !== null}
           >
-            {action === "stale" ? "Vračam…" : "Requeue stale"}
+            {action === "stale" ? "I am returning…" : "Requeue stale"}
           </button>
 
           <button
@@ -362,7 +361,7 @@ export default function JobsPage() {
             }
             disabled={action !== null}
           >
-            {action === "failed" ? "Vračam…" : "Ponovi vse napake"}
+            {action === "failed" ? "I am returning…" : "Repeat all mistakes"}
           </button>
         </div>
       </section>
@@ -374,7 +373,7 @@ export default function JobsPage() {
               <span className="workerSectionLabel">
                 ACTIVE
               </span>
-              <h2>Aktivna opravila</h2>
+              <h2>Active tasks</h2>
             </div>
             <span className="workerCountBadge">
               {formatNumber(activeJobs.length)}
@@ -385,18 +384,18 @@ export default function JobsPage() {
             <table className="workerTable">
               <thead>
                 <tr>
-                  <th>Domena</th>
-                  <th>Napredek</th>
-                  <th>Kontakti</th>
-                  <th>Poskusi</th>
-                  <th>Začetek</th>
+                  <th>Domains</th>
+                  <th>Progress</th>
+                  <th>Contacts</th>
+                  <th>Try</th>
+                  <th>Beginning</th>
                 </tr>
               </thead>
               <tbody>
                 {activeJobs.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="workerEmpty">
-                      Trenutno ni aktivnih opravil.
+                      There are currently no active tasks.
                     </td>
                   </tr>
                 ) : (
@@ -443,7 +442,7 @@ export default function JobsPage() {
               <span className="workerSectionLabel">
                 QUEUE
               </span>
-              <h2>Naslednje domene</h2>
+              <h2>Next domains</h2>
             </div>
             <span className="workerCountBadge">
               {formatNumber(worker?.pending)}
@@ -453,7 +452,7 @@ export default function JobsPage() {
           <div className="workerQueueList">
             {pendingJobs.length === 0 ? (
               <div className="workerEmpty">
-                Čakalna vrsta je prazna.
+                The queue is empty.
               </div>
             ) : (
               pendingJobs.slice(0, 10).map((job) => (
@@ -461,10 +460,10 @@ export default function JobsPage() {
                   <div>
                     <strong>{job.domain}</strong>
                     <span>
-                      {formatNumber(job.total_contacts)} kontaktov
+                      {formatNumber(job.total_contacts)} contacts
                     </span>
                   </div>
-                  <span>Poskus {formatNumber(job.attempts)}</span>
+                  <span>Attempt {formatNumber(job.attempts)}</span>
                 </div>
               ))
             )}
@@ -479,7 +478,7 @@ export default function JobsPage() {
               <span className="workerSectionLabel">
                 FAILED
               </span>
-              <h2>Neuspešna opravila</h2>
+              <h2>Failed tasks</h2>
             </div>
             <span className="workerCountBadge danger">
               {formatNumber(failedJobs.length)}
@@ -490,10 +489,10 @@ export default function JobsPage() {
             <table className="workerTable">
               <thead>
                 <tr>
-                  <th>Domena</th>
-                  <th>Napaka</th>
-                  <th>Poskusi</th>
-                  <th>Posodobljeno</th>
+                  <th>Domain</th>
+                  <th>Error</th>
+                  <th>Try</th>
+                  <th>Updated</th>
                   <th />
                 </tr>
               </thead>
@@ -501,7 +500,7 @@ export default function JobsPage() {
                 {failedJobs.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="workerEmpty">
-                      Ni neuspešnih opravil.
+                      There are no failed tasks.
                     </td>
                   </tr>
                 ) : (
@@ -511,7 +510,7 @@ export default function JobsPage() {
                         <strong>{job.domain}</strong>
                       </td>
                       <td className="workerErrorCell">
-                        {job.last_error ?? "Neznana napaka"}
+                        {job.last_error ?? "Unknown error"}
                       </td>
                       <td>{formatNumber(job.attempts)}</td>
                       <td>{formatDate(job.updated_at)}</td>
@@ -523,8 +522,8 @@ export default function JobsPage() {
                           disabled={action !== null}
                         >
                           {action === `retry-${job.id}`
-                            ? "Vračam…"
-                            : "Ponovi"}
+                            ? "I am returning…"
+                            : "Repeat"}
                         </button>
                       </td>
                     </tr>
@@ -541,14 +540,14 @@ export default function JobsPage() {
               <span className="workerSectionLabel">
                 HISTORY
               </span>
-              <h2>Zadnja opravila</h2>
+              <h2>Recent tasks</h2>
             </div>
           </div>
 
           <div className="workerRecentList">
             {recentJobs.length === 0 ? (
               <div className="workerEmpty">
-                Zgodovina je prazna.
+                History is empty.
               </div>
             ) : (
               recentJobs.slice(0, 12).map((job) => (

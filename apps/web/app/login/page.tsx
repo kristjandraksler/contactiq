@@ -139,7 +139,7 @@ export default function LoginPage() {
               <i />
               Production
             </span>
-            <small>Supabase Auth</small>
+            
           </div>
         </form>
       </section>
