@@ -13,12 +13,13 @@ from app.routes.public_providers import router as public_providers_router
 from app.services.providers import refresh_public_email_domains
 from app.routes.call_log import router as call_log_router
 from app.routes.users import router as users_router
+from app.routes.identity import router as identity_router
 
 app = FastAPI(
     title="ContactIQ API",
     version="0.6.0",
 )
-
+app.include_router(identity_router)
 app.include_router(stats_router)
 app.include_router(public_providers_router)
 app.include_router(enrichment_router)
