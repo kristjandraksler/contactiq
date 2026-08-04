@@ -9,6 +9,7 @@ import { Icon } from "./ui/Icon";
 const primary = [
   { href: "/", label: "Dashboard", icon: "dashboard" as const },
   { href: "/contacts", label: "Contacts", icon: "contacts" as const },
+  { href: "/identity", label: "identity", icon: "SearchCheck" as const },
   { href: "/companies", label: "Companies", icon: "company" as const },
   { href: "/phones", label: "Phone discovery", icon: "phone" as const },
   { href: "/calls", label: "Called", icon: "history" as const },
