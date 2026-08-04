@@ -58,10 +58,10 @@ export default function CompaniesPage() {
       if (country) params.set("country", country);
       if (hasPhone) params.set("has_phone", hasPhone);
       const response = await fetch(`${API_URL}/companies?${params}`, { cache: "no-store" });
-      if (!response.ok) throw new Error("Podjetij ni bilo mogoče naložiti.");
+      if (!response.ok) throw new Error("The companies could not be loaded.");
       setData((await response.json()) as CompaniesResponse);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nepričakovana napaka.");
+      setError(err instanceof Error ? err.message : "Unexpected error.");
     } finally {
       setLoading(false);
     }
@@ -81,34 +81,34 @@ export default function CompaniesPage() {
   return (
     <div className="companiesV2Page ciDataPage ciCompaniesPage">
       <header className="companiesV2Header">
-        <div><p className="eyebrow">COMPANY INTELLIGENCE</p><h1>Podjetja</h1><p className="muted">Združen pogled kontaktov, telefonov, držav in uspešnosti po domenah.</p></div>
-        <Link className="primaryButton" href="/import">Uvozi kontakte</Link>
+        <div><p className="eyebrow">COMPANY INTELLIGENCE</p><h1>Companies</h1><p className="muted">Unified view of contacts, phones, countries and performance by domain.</p></div>
+        <Link className="primaryButton" href="/import">Import contacts</Link>
       </header>
 
       <section className="companiesKpis">
-        <article><span>Podjetja</span><strong>{loading ? "—" : formatNumber(data?.summary.companies ?? 0)}</strong></article>
-        <article><span>Kontakti</span><strong>{loading ? "—" : formatNumber(data?.summary.contacts ?? 0)}</strong></article>
-        <article><span>Telefoni</span><strong>{loading ? "—" : formatNumber(data?.summary.phones ?? 0)}</strong></article>
-        <article><span>Države</span><strong>{loading ? "—" : formatNumber(data?.summary.countries ?? 0)}</strong></article>
+        <article><span>Companies</span><strong>{loading ? "—" : formatNumber(data?.summary.companies ?? 0)}</strong></article>
+        <article><span>Contacts</span><strong>{loading ? "—" : formatNumber(data?.summary.contacts ?? 0)}</strong></article>
+        <article><span>Phones</span><strong>{loading ? "—" : formatNumber(data?.summary.phones ?? 0)}</strong></article>
+        <article><span>Countries</span><strong>{loading ? "—" : formatNumber(data?.summary.countries ?? 0)}</strong></article>
       </section>
 
       <section className="panel pagePanel companiesTablePanel">
         <div className="companiesToolbar">
-          <div><h2>Seznam podjetij</h2><p className="muted">Klikni podjetje za podrobnosti, kontakte in vire.</p></div>
+          <div><h2>List of companies</h2><p className="muted">Click on a company for details, contacts, and resources.</p></div>
           <div className="companiesFilters">
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Išči domeno ali podjetje" />
-            <select value={country} onChange={(e) => setCountry(e.target.value)}><option value="">Vse države</option>{countries.map((item) => <option key={item.code} value={item.code}>{item.flag} {item.name}</option>)}</select>
-            <select value={hasPhone} onChange={(e) => setHasPhone(e.target.value)}><option value="">Vsa podjetja</option><option value="true">S telefonom</option><option value="false">Brez telefona</option></select>
-            <button type="button" onClick={() => void load()}>Osveži</button>
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search for a domain or company" />
+            <select value={country} onChange={(e) => setCountry(e.target.value)}><option value="">All countries</option>{countries.map((item) => <option key={item.code} value={item.code}>{item.flag} {item.name}</option>)}</select>
+            <select value={hasPhone} onChange={(e) => setHasPhone(e.target.value)}><option value="">All companies</option><option value="true">with phone</option><option value="false">without phone</option></select>
+            <button type="button" onClick={() => void load()}>Refresh</button>
           </div>
         </div>
 
         {error && <div className="errorBanner">{error}</div>}
         <div className="companiesTableWrap">
           <table className="companiesTable">
-            <thead><tr><th>Podjetje</th><th>Država</th><th>Kontakti</th><th>Telefoni</th><th>Uspešnost</th><th>Confidence</th><th>Zadnji pregled</th><th /></tr></thead>
+            <thead><tr><th>Companie</th><th>Country</th><th>Contacts</th><th>Phones</th><th>Performance</th><th>Confidence</th><th>Last review</th><th /></tr></thead>
             <tbody>
-              {loading ? <tr><td colSpan={8} className="companiesEmpty">Nalagam podjetja …</td></tr> : (data?.items ?? []).length === 0 ? <tr><td colSpan={8} className="companiesEmpty">Ni podjetij za izbrane filtre.</td></tr> : data?.items.map((company) => (
+              {loading ? <tr><td colSpan={8} className="companiesEmpty">Loading companies...</td></tr> : (data?.items ?? []).length === 0 ? <tr><td colSpan={8} className="companiesEmpty">There are no companies for the selected filters.</td></tr> : data?.items.map((company) => (
                 <tr key={company.domain}>
                   <td><div className="companyIdentity"><span className="companyAvatar">{company.name.slice(0, 2).toUpperCase()}</span><div><strong>{company.name}</strong><small>{company.domain}</small>{company.is_public_provider && <em>PUBLIC PROVIDER</em>}</div></div></td>
                   <td>{company.country_code ? <span>{company.country_flag ?? "🌍"} {company.country_name ?? company.country_code}</span> : <span className="muted">—</span>}</td>
@@ -117,13 +117,13 @@ export default function CompaniesPage() {
                   <td><div className="successCell"><strong>{company.success_rate.toFixed(1)}%</strong><span><i style={{ width: `${Math.min(100, company.success_rate)}%` }} /></span></div></td>
                   <td>{company.average_confidence ? `${company.average_confidence.toFixed(0)}%` : "—"}</td>
                   <td>{formatDate(company.last_scan)}</td>
-                  <td><Link className="companyOpenLink" href={`/companies/${encodeURIComponent(company.domain)}`}>Odpri →</Link></td>
+                  <td><Link className="companyOpenLink" href={`/companies/${encodeURIComponent(company.domain)}`}>Open →</Link></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <div className="companiesPagination"><button disabled={!data?.pagination.has_previous} onClick={() => setPage((value) => Math.max(1, value - 1))}>← Prejšnja</button><span>Stran {data?.pagination.page ?? 1} od {data?.pagination.total_pages || 1}</span><button disabled={!data?.pagination.has_next} onClick={() => setPage((value) => value + 1)}>Naslednja →</button></div>
+        <div className="companiesPagination"><button disabled={!data?.pagination.has_previous} onClick={() => setPage((value) => Math.max(1, value - 1))}>← Previous</button><span>Page {data?.pagination.page ?? 1} od {data?.pagination.total_pages || 1}</span><button disabled={!data?.pagination.has_next} onClick={() => setPage((value) => value + 1)}>Naslednja →</button></div>
       </section>
     </div>
   );

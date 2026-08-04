@@ -160,7 +160,7 @@ export default function CallLogPage() {
         throw new Error(
           await errorMessage(
             response,
-            "Call Loga ni bilo mogoče naložiti.",
+            "The Call Log could not be loaded.",
           ),
         );
       }
@@ -170,7 +170,7 @@ export default function CallLogPage() {
       setError(
         err instanceof Error
           ? err.message
-          : "Call Loga ni bilo mogoče naložiti.",
+          : "The Call Log could not be loaded.",
       );
     } finally {
       setLoading(false);
@@ -202,24 +202,24 @@ export default function CallLogPage() {
   const cards = useMemo(
     () => [
       {
-        label: "Klici danes",
+        label: "Call today",
         value: number(stats?.today),
-        detail: "Zabeleženi danes",
+        detail: "Recorded today",
       },
       {
-        label: "Ta teden",
+        label: "This week",
         value: number(stats?.this_week),
-        detail: "Vsi povzetki klicev",
+        detail: "All call summaries",
       },
       {
         label: "Follow-up",
         value: number(stats?.follow_up),
-        detail: "Načrtovani ponovni klici",
+        detail: "Scheduled callbacks",
       },
       {
-        label: "Dogovorjeni termini",
+        label: "Agreed dates",
         value: number(stats?.meetings),
-        detail: "Rezultat: termin",
+        detail: "Result: appointment",
       },
     ],
     [stats],
@@ -230,15 +230,15 @@ export default function CallLogPage() {
       <header className="v2Topbar callLogHeader">
         <div>
           <p className="eyebrow">CALL LOG</p>
-          <h1>Poklicani</h1>
+          <h1>Called</h1>
           <p className="muted">
-            Zgodovina klicev, povzetki pogovorov in načrtovani
-            follow-upi na enem mestu.
+            Call history, conversation summaries and scheduled
+follow-ups in one place.
           </p>
         </div>
 
         <a className="v2PrimaryButton callLogPrimaryLink" href="/phones">
-          + Nov povzetek na telefonu
+          + New summary on your phone
         </a>
       </header>
 
@@ -266,9 +266,9 @@ export default function CallLogPage() {
       <section className="v2Panel callLogPanel">
         <div className="v2PanelHead callLogToolbar">
           <div>
-            <h2>Vsi zabeleženi klici</h2>
+            <h2>All recorded calls</h2>
             <p className="muted">
-              {number(data?.pagination.total)} zapisov
+              {number(data?.pagination.total)} records
             </p>
           </div>
 
@@ -279,7 +279,7 @@ export default function CallLogPage() {
               onChange={(event) =>
                 setSearchInput(event.target.value)
               }
-              placeholder="Telefon, e-mail, domena ali povzetek"
+              placeholder="Phone, email, domain or summary"
             />
 
             <select
@@ -289,10 +289,10 @@ export default function CallLogPage() {
                 setPage(1);
               }}
             >
-              <option value="all">Vsi datumi</option>
-              <option value="today">Danes</option>
-              <option value="week">Ta teden</option>
-              <option value="month">Ta mesec</option>
+              <option value="all">All dates</option>
+              <option value="today">Today</option>
+              <option value="week">This week</option>
+              <option value="month">This month</option>
             </select>
 
             <select
@@ -302,7 +302,7 @@ export default function CallLogPage() {
                 setPage(1);
               }}
             >
-              <option value="">Vsi rezultati</option>
+              <option value="">All results</option>
               {Object.entries(RESULT_LABELS).map(
                 ([value, label]) => (
                   <option key={value} value={value}>
@@ -319,7 +319,7 @@ export default function CallLogPage() {
                 setPage(1);
               }}
             >
-              <option value="">Vse aktivnosti</option>
+              <option value="">All activities</option>
               {Object.entries(ACTION_LABELS).map(
                 ([value, label]) => (
                   <option key={value} value={value}>
@@ -329,7 +329,7 @@ export default function CallLogPage() {
               )}
             </select>
 
-            <button type="submit">Išči</button>
+            <button type="submit">Search</button>
 
             {(search || period !== "all" || result || action) && (
               <button
@@ -337,7 +337,7 @@ export default function CallLogPage() {
                 className="callLogClear"
                 onClick={clearFilters}
               >
-                Počisti
+                Clean
               </button>
             )}
           </form>
@@ -348,23 +348,23 @@ export default function CallLogPage() {
         )}
 
         {loading ? (
-          <div className="stateMessage callLogEmpty">Nalaganje klicev …</div>
+          <div className="stateMessage callLogEmpty">Loading calls...</div>
         ) : items.length === 0 ? (
           <div className="stateMessage callLogEmpty">
-            Ni zabeleženih klicev za izbrane filtre.
+            There are no calls recorded for the selected filters.
           </div>
         ) : (
           <div className="modernTableWrapper callLogTableWrap">
             <table className="modernTable callLogTable">
               <thead>
                 <tr>
-                  <th>Datum</th>
-                  <th>Kontakt</th>
-                  <th>Telefon</th>
-                  <th>Rezultat</th>
-                  <th>Povzetek</th>
-                  <th>Naslednja aktivnost</th>
-                  <th>Klical</th>
+                  <th>Date</th>
+                  <th>Contact</th>
+                  <th>Phone</th>
+                  <th>Result</th>
+                  <th>Summary</th>
+                  <th>Next activity</th>
+                  <th>Called</th>
                   <th />
                 </tr>
               </thead>
@@ -428,7 +428,7 @@ export default function CallLogPage() {
                           className="callLogOpen"
                           onClick={() => setSelected(item)}
                         >
-                          Odpri
+                          Open
                         </button>
                       </td>
                     </tr>
@@ -453,7 +453,7 @@ export default function CallLogPage() {
                 setPage((current) => Math.max(1, current - 1))
               }
             >
-              Prejšnja
+              Previous
             </button>
 
             <button
@@ -461,7 +461,7 @@ export default function CallLogPage() {
               disabled={!data?.pagination.has_next || loading}
               onClick={() => setPage((current) => current + 1)}
             >
-              Naslednja
+              Next
             </button>
           </div>
         </div>
@@ -479,9 +479,9 @@ export default function CallLogPage() {
           <aside className="callLogDrawer v2Panel">
             <header>
               <div>
-                <p className="eyebrow">POVZETEK KLICA</p>
+                <p className="eyebrow">CALL SUMMARY</p>
                 <h2>
-                  {contactOf(selected)?.phone ?? "Klic"}
+                  {contactOf(selected)?.phone ?? "call"}
                 </h2>
                 <p className="muted">
                   {contactOf(selected)?.email ?? ""}
@@ -506,13 +506,13 @@ export default function CallLogPage() {
               </div>
 
               <section>
-                <h3>Povzetek</h3>
+                <h3>Summary</h3>
                 <p>{selected.summary}</p>
               </section>
 
               <section className="callLogDrawerGrid">
                 <div>
-                  <span>Naslednja aktivnost</span>
+                  <span>Next activity</span>
                   <strong>
                     {ACTION_LABELS[selected.next_action] ??
                       selected.next_action}
@@ -520,17 +520,17 @@ export default function CallLogPage() {
                 </div>
 
                 <div>
-                  <span>Datum follow-upa</span>
+                  <span>Follow-up date</span>
                   <strong>{date(selected.next_call_at)}</strong>
                 </div>
 
                 <div>
-                  <span>Trajanje</span>
+                  <span>Duration</span>
                   <strong>{minutes(selected.duration_seconds)}</strong>
                 </div>
 
                 <div>
-                  <span>Klical</span>
+                  <span>Called</span>
                   <strong>{selected.created_by ?? "—"}</strong>
                 </div>
               </section>

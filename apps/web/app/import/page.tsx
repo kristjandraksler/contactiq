@@ -282,11 +282,10 @@ export default function ImportPage() {
     <>
       <header>
         <div>
-          <p className="eyebrow">UVOZ</p>
-          <h1>Uvoz e-mailov</h1>
+          <p className="eyebrow">Import</p>
+          <h1>Import emails</h1>
           <p className="muted">
-            Naloži CSV, XLSX, XLS ali TXT datoteko, preveri podatke in jih
-            shrani med kontakte.
+            Upload a CSV, XLSX, XLS or TXT file, verify the data and save it to your contacts.
           </p>
         </div>
       </header>
@@ -294,9 +293,9 @@ export default function ImportPage() {
       <section className="panel pagePanel">
         <div className="panelTop">
           <div>
-            <h2>Naloži datoteko</h2>
+            <h2>Upload file</h2>
             <p className="muted">
-              Podprte so CSV, XLSX, XLS in TXT datoteke do velikosti 20 MB.
+              CSV, XLSX, XLS, and TXT files up to 20 MB in size are supported.
             </p>
           </div>
         </div>
@@ -360,12 +359,12 @@ export default function ImportPage() {
 
             <h3 style={{ marginBottom: 8 }}>
               {isDragging
-                ? "Spusti datoteko tukaj"
-                : "Povleci datoteko v to polje"}
+                ? "Drop file here"
+                : "Drag the file into this field"}
             </h3>
 
             <p className="muted" style={{ marginBottom: 18 }}>
-              ali jo izberi iz računalnika
+              or select it from your computer
             </p>
 
             <button
@@ -376,7 +375,7 @@ export default function ImportPage() {
               }}
               disabled={isBusy}
             >
-              Izberi datoteko
+              Select file
             </button>
           </div>
         </div>
@@ -414,7 +413,7 @@ export default function ImportPage() {
                 onClick={createPreview}
                 disabled={isBusy}
               >
-                {isPreviewing ? "Preverjam ..." : "Ustvari predogled"}
+                {isPreviewing ? "Checking..." : "Create a preview"}
               </button>
 
               <button
@@ -426,7 +425,7 @@ export default function ImportPage() {
                   border: "1px solid rgba(148, 163, 184, 0.3)",
                 }}
               >
-                Odstrani
+                Remove
               </button>
             </div>
           </div>
@@ -442,7 +441,7 @@ export default function ImportPage() {
               background: "rgba(239, 68, 68, 0.08)",
             }}
           >
-            <strong>Prišlo je do napake</strong>
+            <strong>An error occurred.</strong>
             <p style={{ margin: "6px 0 0" }}>{error}</p>
           </div>
         )}
@@ -452,10 +451,10 @@ export default function ImportPage() {
         <section className="panel pagePanel" style={{ marginTop: 20 }}>
           <div className="panelTop">
             <div>
-              <p className="eyebrow">PREDOGLED</p>
-              <h2>Rezultat analize</h2>
+              <p className="eyebrow">PREVIEW</p>
+              <h2>Analysis result</h2>
               <p className="muted">
-                Preveri statistiko, preden kontakte shraniš v bazo.
+                Check the statistics before saving contacts to the database.
               </p>
             </div>
           </div>
@@ -468,18 +467,18 @@ export default function ImportPage() {
               gap: 14,
             }}
           >
-            <StatCard label="Najdenih" value={preview.found} />
-            <StatCard label="Veljavnih" value={preview.valid} />
-            <StatCard label="Neveljavnih" value={preview.invalid} />
-            <StatCard label="Duplikatov" value={preview.duplicates} />
+            <StatCard label="Found" value={preview.found} />
+            <StatCard label="Valid" value={preview.valid} />
+            <StatCard label="Invalid" value={preview.invalid} />
+            <StatCard label="Duplicates" value={preview.duplicates} />
             <StatCard
-              label="Pripravljenih za uvoz"
+              label="Ready for import"
               value={preview.ready_to_import}
             />
           </div>
 
           <div style={{ marginTop: 26 }}>
-            <h3>Primer kontaktov</h3>
+            <h3>Example of contacts</h3>
 
             {preview.preview.length > 0 ? (
               <div
@@ -507,7 +506,7 @@ export default function ImportPage() {
               </div>
             ) : (
               <p className="muted" style={{ marginTop: 12 }}>
-                V datoteki ni bilo najdenih veljavnih e-mailov.
+               No valid emails were found in the file.
               </p>
             )}
           </div>
@@ -529,8 +528,8 @@ export default function ImportPage() {
               }
             >
               {isImporting
-                ? "Uvažam kontakte ..."
-                : `Uvozi ${preview.ready_to_import} kontaktov`}
+                ? "Importing contacts..."
+                : `Import ${preview.ready_to_import} contacts`}
             </button>
           </div>
         </section>
@@ -546,10 +545,10 @@ export default function ImportPage() {
               background: "rgba(34, 197, 94, 0.08)",
             }}
           >
-            <p className="eyebrow">UVOZ KONČAN</p>
-            <h2 style={{ marginTop: 6 }}>Kontakti so bili obdelani</h2>
+            <p className="eyebrow">IMPORT COMPLETED</p>
+            <h2 style={{ marginTop: 6 }}>Contacts have been processed</h2>
             <p className="muted">
-              Novi kontakti so shranjeni v tabeli email_targets.
+              New contacts are stored in the email_targets table.
             </p>
           </div>
 
@@ -561,16 +560,16 @@ export default function ImportPage() {
               gap: 14,
             }}
           >
-            <StatCard label="Dodanih novih" value={result.inserted} />
+            <StatCard label="New ones added" value={result.inserted} />
             <StatCard
-              label="Že obstajalo"
+              label="Already existed"
               value={result.already_existed}
             />
             <StatCard
-              label="Duplikatov v datoteki"
+              label="Duplicates in the file"
               value={result.duplicates_in_file}
             />
-            <StatCard label="Neveljavnih" value={result.invalid} />
+            <StatCard label="Invalid" value={result.invalid} />
           </div>
 
           <div
@@ -595,11 +594,11 @@ export default function ImportPage() {
                 fontWeight: 600,
               }}
             >
-              Odpri kontakte
+              Open contacts
             </a>
 
             <button type="button" onClick={removeFile}>
-              Uvozi novo datoteko
+             Import a new file
             </button>
           </div>
         </section>

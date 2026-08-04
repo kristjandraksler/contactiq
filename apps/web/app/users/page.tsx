@@ -159,8 +159,8 @@ export default function UsersPage() {
     return (
       <div className="usersPage">
         <div className="usersAccessDenied">
-          <h1>Dostop ni dovoljen</h1>
-          <p>To stran lahko odpre samo administrator.</p>
+          <h1>Access is not allowed.</h1>
+          <p>Only the administrator can open this page.</p>
         </div>
       </div>
     );
@@ -171,9 +171,9 @@ export default function UsersPage() {
       <header className="usersHeader">
         <div>
           <p>USER MANAGEMENT</p>
-          <h1>Uporabniki</h1>
+          <h1>Users</h1>
           <span>
-            Ustvari uporabnike in upravljaj njihove vloge ter dostop.
+            Create users and manage their roles and access.
           </span>
         </div>
       </header>
@@ -181,12 +181,12 @@ export default function UsersPage() {
       <section className="usersGrid">
         <form className="userCreateCard" onSubmit={createUser}>
           <div>
-            <p>NOV UPORABNIK</p>
-            <h2>Dodaj dostop</h2>
+            <p>NEW USER</p>
+            <h2>Add access</h2>
           </div>
 
           <label>
-            <span>Ime</span>
+            <span>Name</span>
             <input
               value={fullName}
               onChange={(event) => setFullName(event.target.value)}
@@ -206,7 +206,7 @@ export default function UsersPage() {
           </label>
 
           <label>
-            <span>Začasno geslo</span>
+            <span>Temporary password</span>
             <input
               type="password"
               required
@@ -218,7 +218,7 @@ export default function UsersPage() {
           </label>
 
           <label>
-            <span>Vloga</span>
+            <span>Role</span>
             <select
               value={role}
               onChange={(event) =>
@@ -239,7 +239,7 @@ export default function UsersPage() {
           <div className="usersPanelHead">
             <div>
               <p>WORKSPACE ACCESS</p>
-              <h2>Aktivni uporabniki</h2>
+              <h2>Active users</h2>
             </div>
             <strong>{items.length}</strong>
           </div>
@@ -247,16 +247,16 @@ export default function UsersPage() {
           {error && <div className="usersError">{error}</div>}
 
           {loading ? (
-            <div className="usersEmpty">Nalaganje uporabnikov …</div>
+            <div className="usersEmpty">Loading users...</div>
           ) : (
             <div className="usersTableWrap">
               <table>
                 <thead>
                   <tr>
-                    <th>Uporabnik</th>
-                    <th>Vloga</th>
+                    <th>User</th>
+                    <th>Role</th>
                     <th>Status</th>
-                    <th>Zadnja prijava</th>
+                    <th>Last login</th>
                     <th />
                   </tr>
                 </thead>
@@ -303,7 +303,7 @@ export default function UsersPage() {
                             })
                           }
                         >
-                          {item.active ? "Deaktiviraj" : "Aktiviraj"}
+                          {item.active ? "Deactivate" : "Activate"}
                         </button>
                       </td>
                     </tr>

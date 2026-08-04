@@ -290,7 +290,7 @@ function CountryIntelligence({
             </div>
           ) : (
             <p className="muted" style={{ margin: "6px 0 0" }}>
-              Evidence še ni zapisano.
+              The record has not yet been written.
             </p>
           )}
         </div>
@@ -341,7 +341,7 @@ function MatchTypeBadge({
 function CrossBorderBadge() {
   return (
     <span
-      title="Država podjetja in telefona se razlikujeta."
+      title="The country of the company and the phone are different."
       style={{
         display: "inline-flex",
         alignItems: "center",
@@ -449,7 +449,7 @@ export default function ContactsPage() {
         throw new Error(
           await readErrorMessage(
             response,
-            "Kontaktov ni bilo mogoče naložiti.",
+            "Contacts could not be loaded.",
           ),
         );
       }
@@ -471,7 +471,7 @@ export default function ContactsPage() {
       setError(
         err instanceof Error
           ? err.message
-          : "Pri nalaganju kontaktov je prišlo do napake.",
+          : "An error occurred while loading contacts.",
       );
     } finally {
       setLoading(false);
@@ -629,9 +629,9 @@ export default function ContactsPage() {
       if (current.length >= MAX_SELECTED) {
         setNotice({
           type: "info",
-          title: "Dosežena je omejitev izbora.",
+          title: "Selection limit reached.",
           message:
-            `Naenkrat lahko izbereš največ ${MAX_SELECTED} kontaktov.`,
+            `You can select a maximum of ${MAX_SELECTED} contacts.`,
         });
 
         return current;
@@ -678,9 +678,9 @@ export default function ContactsPage() {
     if (selectableIds.length > remainingCapacity) {
       setNotice({
         type: "info",
-        title: `Izbranih je največ ${MAX_SELECTED} kontaktov.`,
+        title: `The most selected ${MAX_SELECTED} contacts.`,
         message:
-          `Na trenutni strani je več kontaktov, zato je sistem izbral prvih ${MAX_SELECTED}.`,
+          `There are multiple contacts on the current page, so the system selected the first ones. ${MAX_SELECTED}.`,
       });
     }
   }
@@ -703,10 +703,10 @@ export default function ContactsPage() {
     if (data.processed === 0) {
       setNotice({
         type: "info",
-        title: "Ni kontaktov za obdelavo.",
+        title: "There are no contacts to process.",
         message:
           data.message ??
-          "Ni ustreznih kontaktov za iskanje telefonskih številk.",
+          "There are no matching contacts for phone number search.",
       });
 
       return;
@@ -717,13 +717,13 @@ export default function ContactsPage() {
         data.failed > 0
           ? "info"
           : "success",
-      title: `Obdelanih kontaktov: ${data.processed}`,
+      title: `Contacts processed: ${data.processed}`,
       message: [
-        `najdeno ${data.matched}`,
-        `delno ${data.partial_match}`,
-        `ni najdeno ${data.not_found}`,
-        `preskočeno ${data.skipped}`,
-        `napake ${data.failed}`,
+        `found ${data.matched}`,
+        `partially ${data.partial_match}`,
+        `not found ${data.not_found}`,
+        `skipped ${data.skipped}`,
+        `errors ${data.failed}`,
       ].join(" · "),
     });
   }
@@ -752,7 +752,7 @@ export default function ContactsPage() {
       throw new Error(
         await readErrorMessage(
           response,
-          "Telefonske številke ni bilo mogoče poiskati.",
+          "The phone number could not be found.",
         ),
       );
     }
@@ -791,10 +791,10 @@ export default function ContactsPage() {
     if (data.skipped) {
       setNotice({
         type: "info",
-        title: "Kontakt je bil preskočen.",
+        title: "The contact was skipped.",
         message:
           data.result.error ??
-          "Kontakt uporablja javnega ponudnika e-pošte.",
+          "The contact uses a public email provider.",
       });
 
       return data;
@@ -803,9 +803,9 @@ export default function ContactsPage() {
     if (data.result.status === "NOT_FOUND") {
       setNotice({
         type: "info",
-        title: "Telefonska številka ni bila najdena.",
+        title: "The phone number was not found.",
         message:
-          "Sistem je pregledal dostopne strani, vendar ni našel veljavne številke.",
+          "The system scanned the accessible pages but did not find a valid number.",
       });
 
       return data;
@@ -813,10 +813,10 @@ export default function ContactsPage() {
 
     setNotice({
       type: "error",
-      title: "Iskanje ni uspelo.",
+      title: "Search failed.",
       message:
         data.result.error ??
-        "Pri iskanju je prišlo do napake.",
+        "An error occurred while searching.",
     });
 
     return data;
@@ -844,11 +844,11 @@ export default function ContactsPage() {
     } catch (err) {
       setNotice({
         type: "error",
-        title: "Iskanje ni uspelo.",
+        title: "Search failed.",
         message:
           err instanceof Error
             ? err.message
-            : "Pri iskanju je prišlo do napake.",
+            : "An error occurred while searching.",
       });
     } finally {
       setEnrichingIds((current) =>
@@ -960,11 +960,11 @@ export default function ContactsPage() {
         failed > 0
           ? "info"
           : "success",
-      title: `Obdelanih kontaktov: ${contactsToProcess.length}`,
+      title: `Contacts processed: ${contactsToProcess.length}`,
       message: [
-        `telefon najden ${matched}`,
-        `brez telefona ${partialMatch + notFound + skipped}`,
-        `napake ${failed}`,
+        `phone found ${matched}`,
+        `without a phone ${partialMatch + notFound + skipped}`,
+        `errors ${failed}`,
       ].join(" · "),
     });
 
@@ -1000,7 +1000,7 @@ export default function ContactsPage() {
         throw new Error(
           await readErrorMessage(
             response,
-            "Množične obdelave ni bilo mogoče izvesti.",
+            "Bulk processing could not be performed.",
           ),
         );
       }
@@ -1013,11 +1013,11 @@ export default function ContactsPage() {
     } catch (err) {
       setNotice({
         type: "error",
-        title: "Množična obdelava ni uspela.",
+        title: "Bulk processing failed.",
         message:
           err instanceof Error
             ? err.message
-            : "Pri množični obdelavi je prišlo do napake.",
+            : "An error occurred during bulk processing.",
       });
     } finally {
       setBulkLoading(false);
@@ -1045,10 +1045,10 @@ export default function ContactsPage() {
     <div className="ciDataPage ciContactsPage">
       <header className="pageHeader ciDataHeader">
         <div>
-          <p className="eyebrow">KONTAKTI</p>
-          <h1>Kontakti</h1>
+          <p className="eyebrow">CONTACTS</p>
+          <h1>Contacts</h1>
           <p className="muted">
-            Pregled kontaktov in najdenih telefonskih številk.
+            Overview of contacts and found phone numbers.
           </p>
         </div>
 
@@ -1071,8 +1071,8 @@ export default function ContactsPage() {
             }
           >
             {bulkLoading
-              ? "Obdelujem kontakte …"
-              : `Obdelaj naslednjih ${pageSize}`}
+              ? "I am processing contacts..."
+              : `Process the following ${pageSize}`}
           </button>
 
           <button
@@ -1082,8 +1082,8 @@ export default function ContactsPage() {
             disabled={loading || bulkLoading}
           >
             {loading
-              ? "Osvežujem …"
-              : "Osveži podatke"}
+              ? "Refreshing..."
+              : "Refresh data"}
           </button>
         </div>
       </header>
@@ -1109,7 +1109,7 @@ export default function ContactsPage() {
             className="smallButton"
             onClick={() => setNotice(null)}
           >
-            Zapri
+            Close
           </button>
         </div>
       )}
@@ -1117,10 +1117,10 @@ export default function ContactsPage() {
       <section className="panel pagePanel">
         <div className="panelTop contactsPanelTop">
           <div>
-            <h2>Seznam kontaktov</h2>
+            <h2>Contact list</h2>
             <p className="muted">
-              Skupaj{" "}
-              {formatNumber(pagination.total)} kontaktov.
+              Total{" "}
+              {formatNumber(pagination.total)} contacts.
             </p>
           </div>
 
@@ -1134,14 +1134,14 @@ export default function ContactsPage() {
               onChange={(event) =>
                 setSearchInput(event.target.value)
               }
-              placeholder="Išči po e-mailu ali domeni"
-              aria-label="Išči kontakte"
+              placeholder="Search by email or domain"
+              aria-label="Search contacts"
             />
 
             <select
               value={status}
               onChange={handleStatusChange}
-              aria-label="Filtriraj po statusu"
+              aria-label="Filter by status"
             >
               {statusOptions.map((option) => (
                 <option
@@ -1156,7 +1156,7 @@ export default function ContactsPage() {
             <select
               value={companyCountry}
               onChange={handleCompanyCountryChange}
-              aria-label="Filtriraj po državi podjetja"
+              aria-label="Filter by company country"
             >
               <option value="">Vse države podjetij</option>
               {companyCountries.map((item) => (
@@ -1170,9 +1170,9 @@ export default function ContactsPage() {
             <select
               value={phoneCountry}
               onChange={handlePhoneCountryChange}
-              aria-label="Filtriraj po državi telefona"
+              aria-label="Filter by phone country"
             >
-              <option value="">Vse države telefonov</option>
+              <option value="">All phone countries</option>
               {phoneCountries.map((item) => (
                 <option key={item.code} value={item.code}>
                   {item.flag ?? "☎"}{" "}
@@ -1196,7 +1196,7 @@ export default function ContactsPage() {
                   setPage(1);
                 }}
               />
-              Samo cross-border
+              Just cross-border
             </label>
 
             <button
@@ -1212,7 +1212,7 @@ export default function ContactsPage() {
                 className="ghostButton"
                 onClick={clearFilters}
               >
-                Počisti
+                Clean
               </button>
             )}
           </form>
@@ -1228,12 +1228,12 @@ export default function ContactsPage() {
           >
             <div>
               <strong>
-                Izbranih kontaktov:{" "}
+                Selected contacts:{" "}
                 {selectedIds.length}
               </strong>
               <p>
-                Naenkrat lahko obdelaš največ{" "}
-                {MAX_SELECTED} kontaktov.
+                You can process up to{" "}
+                {MAX_SELECTED} contacts.
               </p>
             </div>
 
@@ -1252,8 +1252,8 @@ export default function ContactsPage() {
                 disabled={bulkLoading}
               >
                 {bulkLoading
-                  ? "Iščem telefonske številke …"
-                  : "Poišči telefone za izbrane"}
+                  ? "I'm looking for phone numbers..."
+                  : "Find phones for selected"}
               </button>
 
               <button
@@ -1262,7 +1262,7 @@ export default function ContactsPage() {
                 onClick={() => setSelectedIds([])}
                 disabled={bulkLoading}
               >
-                Počisti izbor
+                Clear selection
               </button>
             </div>
           </div>
@@ -1272,7 +1272,7 @@ export default function ContactsPage() {
           <div className="alert alertError panelAlert">
             <div>
               <strong>
-                Kontaktov ni bilo mogoče prikazati.
+                Contacts could not be displayed.
               </strong>
               <p>{error}</p>
             </div>
@@ -1282,7 +1282,8 @@ export default function ContactsPage() {
               className="smallButton"
               onClick={() => void loadContacts()}
             >
-              Poskusi znova
+              
+              Try again
             </button>
           </div>
         )}
@@ -1290,14 +1291,13 @@ export default function ContactsPage() {
         {loading ? (
           <div className="stateMessage largeState">
             <div className="spinner" />
-            <p>Nalaganje kontaktov …</p>
+            <p>Loading contacts...</p>
           </div>
         ) : contacts.length === 0 ? (
           <div className="stateMessage largeState">
-            <h3>Ni rezultatov</h3>
+            <h3>No results</h3>
             <p>
-              Za izbrane filtre ni bilo mogoče najti
-              kontaktov.
+             No contacts could be found for the selected filters.
             </p>
 
             {(activeSearch || status || companyCountry || phoneCountry || mismatchOnly) && (
@@ -1338,21 +1338,21 @@ export default function ContactsPage() {
                           bulkLoading ||
                           selectableIds.length === 0
                         }
-                        aria-label="Izberi vse kontakte na strani"
+                        aria-label="Select all contacts on the page"
                       />
                     </th>
 
                     <th>E-mail</th>
-                    <th>Domena</th>
-                    <th>Država podjetja</th>
-                    <th>Država telefona</th>
-                    <th>Telefon</th>
+                    <th>Domain</th>
+                    <th>Company country</th>
+                    <th>Phone country</th>
+                    <th>Phone</th>
                     <th>Status</th>
                     <th>Confidence</th>
-                    <th>Tip</th>
-                    <th>Poskusi</th>
-                    <th>Zadnja obdelava</th>
-                    <th>Akcija</th>
+                    <th>Type</th>
+                    <th>Try</th>
+                    <th>Last processing</th>
+                    <th>Action</th>
                   </tr>
                 </thead>
 
@@ -1397,7 +1397,7 @@ export default function ContactsPage() {
                                 contact.id,
                               )
                             }
-                            aria-label={`Izberi ${contact.email}`}
+                            aria-label={`Select ${contact.email}`}
                           />
                         </td>
 
@@ -1461,8 +1461,8 @@ export default function ContactsPage() {
                               <span
                                 title={
                                   geo.country_mismatch
-                                    ? "Telefonska država se razlikuje od države podjetja."
-                                    : "Telefonska država"
+                                    ? "The phone country is different from the company country."
+                                    : "Telephone country"
                                 }
                                 style={{
                                   display: "inline-flex",
@@ -1516,7 +1516,7 @@ export default function ContactsPage() {
                                 )}`}
                               >
                                 {isEnriching
-                                  ? "Obdelujem"
+                                  ? "I am processing"
                                   : getStatusLabel(displayStatus)}
                               </span>
                             );
@@ -1568,12 +1568,12 @@ export default function ContactsPage() {
                             }
                           >
                             {isEnriching
-                              ? "Iščem …"
+                              ? "Searching …"
                               : isPublicEmail
                                 ? "Public e-mail"
                                 : hasPhone
-                                  ? "Poišči znova"
-                                  : "Poišči telefon"}
+                                  ? "Search again"
+                                  : "Find phone"}
                           </button>
                         </td>
                       </tr>
@@ -1648,7 +1648,7 @@ export default function ContactsPage() {
                     );
                   }}
                 >
-                  Prejšnja
+                  Previous
                 </button>
 
                 <div className="pageNumbers">
@@ -1694,7 +1694,7 @@ export default function ContactsPage() {
                     );
                   }}
                 >
-                  Naslednja
+                  Next
                 </button>
               </div>
             </div>

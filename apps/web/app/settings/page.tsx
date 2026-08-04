@@ -92,10 +92,10 @@ export default function SettingsPage() {
     <>
       <header>
         <div>
-          <p className="eyebrow">NASTAVITVE</p>
-          <h1>Konfiguracija sistema</h1>
+          <p className="eyebrow">SETTINGS</p>
+          <h1>System configuration</h1>
           <p className="muted">
-            Pregled dejanskega stanja storitev in konfiguracije ContactIQ.
+           Review of the actual status of ContactIQ services and configuration.
           </p>
         </div>
       </header>
@@ -104,7 +104,7 @@ export default function SettingsPage() {
         <section className="panel pagePanel">
           <div className="stateMessage largeState">
             <div className="spinner" />
-            <p>Nalaganje podatkov o sistemu ...</p>
+            <p>Loading system data...</p>
           </div>
         </section>
       )}
@@ -112,7 +112,7 @@ export default function SettingsPage() {
       {!isLoading && error && (
         <div className="alert alertError">
           <div>
-            <strong>Podatkov ni bilo mogoče naložiti.</strong>
+            <strong>The data could not be loaded.</strong>
             <p>{error}</p>
           </div>
         </div>
@@ -123,9 +123,9 @@ export default function SettingsPage() {
           <section className="panel">
             <div className="panelTop">
               <div>
-                <h2>Status sistema</h2>
+                <h2>System status</h2>
                 <p className="muted">
-                  Trenutno stanje ključnih storitev ContactIQ.
+                  Current status of ContactIQ's key services.
                 </p>
               </div>
             </div>
@@ -151,23 +151,23 @@ export default function SettingsPage() {
           <section className="settingsColumns">
             <article className="panel settingsCard">
               <div>
-                <h2>Baza podatkov</h2>
+                <h2>Database</h2>
                 <p className="muted">
-                  Osnovne informacije o podatkih v Supabase.
+                  Basic information about data in Supabase.
                 </p>
               </div>
 
               <dl className="detailsList">
                 <div>
-                  <dt>Ponudnik</dt>
+                  <dt>Provider</dt>
                   <dd>{data.database.provider}</dd>
                 </div>
                 <div>
-                  <dt>Kontakti</dt>
+                  <dt>Contacts</dt>
                   <dd>{data.database.email_targets.toLocaleString("sl-SI")}</dd>
                 </div>
                 <div>
-                  <dt>Podjetja v cacheu</dt>
+                  <dt>Companies in cache</dt>
                   <dd>{data.database.companies.toLocaleString("sl-SI")}</dd>
                 </div>
               </dl>
@@ -177,7 +177,7 @@ export default function SettingsPage() {
               <div>
                 <h2>Enrichment</h2>
                 <p className="muted">
-                  Aktivna pravila za iskanje telefonskih številk.
+                  Active rules for searching phone numbers.
                 </p>
               </div>
 
@@ -203,23 +203,23 @@ export default function SettingsPage() {
 
             <article className="panel settingsCard">
               <div>
-                <h2>Sistem</h2>
+                <h2>System</h2>
                 <p className="muted">
-                  Informacije o aplikaciji in produkcijskem okolju.
+                  Information about the application and production environment.
                 </p>
               </div>
 
               <dl className="detailsList">
                 <div>
-                  <dt>Aplikacija</dt>
+                  <dt>Application</dt>
                   <dd>{data.application.name}</dd>
                 </div>
                 <div>
-                  <dt>Različica API</dt>
+                  <dt>API version</dt>
                   <dd>v{data.application.version}</dd>
                 </div>
                 <div>
-                  <dt>Okolje</dt>
+                  <dt>Environment</dt>
                   <dd>{data.application.environment}</dd>
                 </div>
                 <div>
@@ -235,9 +235,9 @@ export default function SettingsPage() {
 
             <article className="panel settingsCard">
               <div>
-                <h2>Statusi kontaktov</h2>
+                <h2>Contact statuses</h2>
                 <p className="muted">
-                  Statusi, ki jih uporablja trenutni enrichment proces.
+                  Statuses used by the current enrichment process.
                 </p>
               </div>
 
