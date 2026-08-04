@@ -7,9 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 
 import "./users.css";
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ??
-  "http://127.0.0.1:8000";
+const USERS_API = "/api/admin/users";
 
 type ManagedUser = {
   id: string;
@@ -48,23 +46,23 @@ export default function UsersPage() {
 
       const token = await bearerToken();
 
-      const response = await fetch(`${API_URL}/admin/users`, {
+      const response = await fetch(USERS_API, {
         cache: "no-store",
         headers: {
           Authorization: `Bearer ${token ?? ""}`,
         },
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(data.detail ?? "Uporabnikov ni bilo mogoče naložiti.");
+        throw new Error(data.detail ?? "Users could not be loaded.");
       }
 
       setItems(data.items ?? []);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Nepričakovana napaka.",
+        err instanceof Error ? err.message : "Unexpected error.",
       );
     } finally {
       setLoading(false);
@@ -87,7 +85,7 @@ export default function UsersPage() {
       setError(null);
 
       const token = await bearerToken();
-      const response = await fetch(`${API_URL}/admin/users`, {
+      const response = await fetch(USERS_API, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token ?? ""}`,
@@ -101,10 +99,10 @@ export default function UsersPage() {
         }),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(data.detail ?? "Uporabnika ni bilo mogoče ustvariti.");
+        throw new Error(data.detail ?? "The user could not be created.");
       }
 
       setFullName("");
@@ -114,7 +112,7 @@ export default function UsersPage() {
       await load();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Nepričakovana napaka.",
+        err instanceof Error ? err.message : "Unexpected error.",
       );
     } finally {
       setSaving(false);
@@ -130,7 +128,7 @@ export default function UsersPage() {
       const token = await bearerToken();
 
       const response = await fetch(
-        `${API_URL}/admin/users/${userId}`,
+        `${USERS_API}/${userId}`,
         {
           method: "PATCH",
           headers: {
@@ -141,16 +139,16 @@ export default function UsersPage() {
         },
       );
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(data.detail ?? "Uporabnika ni bilo mogoče posodobiti.");
+        throw new Error(data.detail ?? "The user could not be updated.");
       }
 
       await load();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Nepričakovana napaka.",
+        err instanceof Error ? err.message : "Unexpected error.",
       );
     }
   }
@@ -159,8 +157,8 @@ export default function UsersPage() {
     return (
       <div className="usersPage">
         <div className="usersAccessDenied">
-          <h1>Access is not allowed.</h1>
-          <p>Only the administrator can open this page.</p>
+          <h1>Access denied</h1>
+          <p>Only administrators can open this page.</p>
         </div>
       </div>
     );
@@ -190,7 +188,7 @@ export default function UsersPage() {
             <input
               value={fullName}
               onChange={(event) => setFullName(event.target.value)}
-              placeholder="Ime in priimek"
+              placeholder="Full name"
             />
           </label>
 
@@ -213,7 +211,7 @@ export default function UsersPage() {
               minLength={8}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Najmanj 8 znakov"
+              placeholder="At least 8 characters"
             />
           </label>
 
@@ -231,7 +229,7 @@ export default function UsersPage() {
           </label>
 
           <button type="submit" disabled={saving}>
-            {saving ? "Ustvarjam …" : "Ustvari uporabnika"}
+            {saving ? "Creating…" : "Create user"}
           </button>
         </form>
 
@@ -239,7 +237,7 @@ export default function UsersPage() {
           <div className="usersPanelHead">
             <div>
               <p>WORKSPACE ACCESS</p>
-              <h2>Active users</h2>
+              <h2>Workspace users</h2>
             </div>
             <strong>{items.length}</strong>
           </div>
@@ -247,7 +245,7 @@ export default function UsersPage() {
           {error && <div className="usersError">{error}</div>}
 
           {loading ? (
-            <div className="usersEmpty">Loading users...</div>
+            <div className="usersEmpty">Loading users…</div>
           ) : (
             <div className="usersTableWrap">
               <table>
@@ -256,7 +254,7 @@ export default function UsersPage() {
                     <th>User</th>
                     <th>Role</th>
                     <th>Status</th>
-                    <th>Last login</th>
+                    <th>Last sign-in</th>
                     <th />
                   </tr>
                 </thead>
@@ -287,7 +285,7 @@ export default function UsersPage() {
                       </td>
                       <td>
                         {item.last_sign_in_at
-                          ? new Intl.DateTimeFormat("sl-SI", {
+                          ? new Intl.DateTimeFormat("en-GB", {
                               dateStyle: "medium",
                               timeStyle: "short",
                             }).format(new Date(item.last_sign_in_at))
