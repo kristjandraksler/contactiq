@@ -75,6 +75,13 @@ PUBLIC_EMAIL_CONTACT_CONCURRENCY = max(
     min(int(os.getenv("PUBLIC_EMAIL_CONTACT_CONCURRENCY", "2")), 5),
 )
 
+# The admin endpoint has a 240-second timeout. Keep each claimed public-email
+# job below that limit, then return it to PENDING if contacts remain.
+PUBLIC_EMAIL_JOB_BUDGET_SECONDS = max(
+    30,
+    min(int(os.getenv("PUBLIC_EMAIL_JOB_BUDGET_SECONDS", "200")), 220),
+)
+
 WORKER_ID = os.getenv(
     "DOMAIN_WORKER_ID",
     f"{socket.gethostname()}-{uuid.uuid4().hex[:8]}",
@@ -475,61 +482,75 @@ async def _process_public_email_chunk(
     job: DomainJob,
     domain: str,
 ) -> None:
+    started_at = time.perf_counter()
+
     total_contacts = await asyncio.to_thread(
         count_contacts,
         domain,
-    )
-
-    chunk = await asyncio.to_thread(
-        get_new_contacts_chunk,
-        domain,
-        PUBLIC_EMAIL_CHUNK_SIZE,
-    )
-
-    if not chunk:
-        matched = await asyncio.to_thread(
-            count_domain_matches,
-            domain,
-        )
-        update_job(
-            job.id,
-            {
-                "status": (
-                    "MATCHED"
-                    if matched > 0
-                    else "NOT_FOUND"
-                ),
-                "processed_contacts": total_contacts,
-                "total_contacts": total_contacts,
-                "finished_at": utc_now_iso(),
-                "worker_id": None,
-                "started_at": None,
-                "last_error": None,
-                "next_retry_at": None,
-            },
-        )
-        return
-
-    logger.info(
-        "PUBLIC_EMAIL_CHUNK_START domain=%s chunk=%s total=%s",
-        domain,
-        len(chunk),
-        total_contacts,
     )
 
     semaphore = asyncio.Semaphore(
         PUBLIC_EMAIL_CONTACT_CONCURRENCY
     )
 
-    await asyncio.gather(
-        *(
-            _process_public_contact(
-                contact,
-                semaphore,
-            )
-            for contact in chunk
-        )
+    processed_this_claim = 0
+
+    logger.info(
+        "PUBLIC_EMAIL_JOB_START domain=%s total=%s chunk_size=%s budget_seconds=%s",
+        domain,
+        total_contacts,
+        PUBLIC_EMAIL_CHUNK_SIZE,
+        PUBLIC_EMAIL_JOB_BUDGET_SECONDS,
     )
+
+    while True:
+        elapsed = time.perf_counter() - started_at
+
+        if elapsed >= PUBLIC_EMAIL_JOB_BUDGET_SECONDS:
+            logger.info(
+                "PUBLIC_EMAIL_JOB_BUDGET_REACHED domain=%s elapsed_seconds=%.2f processed_this_claim=%s",
+                domain,
+                elapsed,
+                processed_this_claim,
+            )
+            break
+
+        chunk = await asyncio.to_thread(
+            get_new_contacts_chunk,
+            domain,
+            PUBLIC_EMAIL_CHUNK_SIZE,
+        )
+
+        if not chunk:
+            break
+
+        logger.info(
+            "PUBLIC_EMAIL_CHUNK_START domain=%s chunk=%s total=%s processed_this_claim=%s",
+            domain,
+            len(chunk),
+            total_contacts,
+            processed_this_claim,
+        )
+
+        await asyncio.gather(
+            *(
+                _process_public_contact(
+                    contact,
+                    semaphore,
+                )
+                for contact in chunk
+            )
+        )
+
+        processed_this_claim += len(chunk)
+
+        logger.info(
+            "PUBLIC_EMAIL_CHUNK_END domain=%s chunk=%s processed_this_claim=%s elapsed_seconds=%.2f",
+            domain,
+            len(chunk),
+            processed_this_claim,
+            time.perf_counter() - started_at,
+        )
 
     remaining = await asyncio.to_thread(
         count_contacts,
@@ -576,12 +597,14 @@ async def _process_public_email_chunk(
         )
 
     logger.info(
-        "PUBLIC_EMAIL_CHUNK_END domain=%s processed=%s total=%s remaining=%s matched=%s",
+        "PUBLIC_EMAIL_JOB_END domain=%s processed=%s total=%s remaining=%s matched=%s processed_this_claim=%s elapsed_seconds=%.2f",
         domain,
         processed,
         total_contacts,
         remaining,
         matched,
+        processed_this_claim,
+        time.perf_counter() - started_at,
     )
 
 
