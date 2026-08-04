@@ -187,7 +187,7 @@ function CountryIntelligence({
       }}
     >
       <summary
-        title="Odpri Country Intelligence"
+        title="Open Country Intelligence"
         style={{
           cursor: "pointer",
           listStyle: "none",
@@ -775,7 +775,7 @@ export default function ContactsPage() {
     if (data.success && data.contact.phone) {
       setNotice({
         type: "success",
-        title: "Telefonska številka je najdena.",
+        title: "TThe phone number is found.",
         message: `${data.contact.email}: ${
           data.contact.phone
         }${
@@ -1158,7 +1158,7 @@ export default function ContactsPage() {
               onChange={handleCompanyCountryChange}
               aria-label="Filter by company country"
             >
-              <option value="">Vse države podjetij</option>
+              <option value="">All company countries</option>
               {companyCountries.map((item) => (
                 <option key={item.code} value={item.code}>
                   {item.flag ?? "🌍"}{" "}
@@ -1306,7 +1306,7 @@ export default function ContactsPage() {
                 className="secondaryButton"
                 onClick={clearFilters}
               >
-                Počisti filtre
+                Clear filters
               </button>
             )}
           </div>
@@ -1593,7 +1593,7 @@ export default function ContactsPage() {
     }}
   >
     <p className="paginationInfo">
-      Prikazujem{" "}
+      Showing{" "}
       <strong>
         {formatNumber(resultStart)}–
         {formatNumber(resultEnd)}
@@ -1612,7 +1612,7 @@ export default function ContactsPage() {
       }}
     >
       <span className="muted">
-        Na stran:
+        To the side:
       </span>
 
       <select
