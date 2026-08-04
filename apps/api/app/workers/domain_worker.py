@@ -611,7 +611,12 @@ async def process_job(
         public_email_domain = is_public_email_domain(domain)
 
         if public_email_domain:
-            if include_public_emails:
+            gmail_domain = domain in {
+                "gmail.com",
+                "googlemail.com",
+            }
+
+            if include_public_emails and gmail_domain:
                 await _process_public_email_chunk(
                     job,
                     domain,
@@ -635,8 +640,8 @@ async def process_job(
                         "worker_id": None,
                         "started_at": None,
                         "last_error": (
-                            "Public mailbox provider; "
-                            "excluded from company enrichment."
+                            "Public mailbox provider excluded; "
+                            "this worker researches Gmail only."
                         ),
                         "next_retry_at": None,
                     },
@@ -897,7 +902,13 @@ async def worker_loop() -> None:
                 continue
 
             await asyncio.gather(
-                *(process_job(job) for job in jobs)
+                *(
+                    process_job(
+                        job,
+                        include_public_emails=True,
+                    )
+                    for job in jobs
+                )
             )
 
         except asyncio.CancelledError:
