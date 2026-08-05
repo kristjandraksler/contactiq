@@ -9,10 +9,7 @@ import httpx
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, EmailStr, Field
 
-from app.services.identity_resolver import (
-    resolve_public_email,
-    resolution_dict,
-)
+from app.services.identity_resolver import resolve_public_email
 
 
 router = APIRouter(
@@ -88,17 +85,58 @@ def _is_public_email(email: str) -> bool:
     return _domain_from_email(email) in PUBLIC_EMAIL_DOMAINS
 
 
+def _split_name(
+    full_name: str | None,
+) -> tuple[str | None, str | None]:
+    if not full_name:
+        return None, None
+
+    parts = [
+        part
+        for part in full_name.strip().split()
+        if part
+    ]
+
+    if not parts:
+        return None, None
+
+    if len(parts) == 1:
+        return parts[0], None
+
+    return parts[0], " ".join(parts[1:])
+
+
 async def _save_identity_result(
     client: httpx.AsyncClient,
     result: Any,
 ) -> dict[str, Any]:
     now = datetime.now(timezone.utc).isoformat()
-
-    result_data = resolution_dict(result)
+    full_name = getattr(result, "person_name", None)
+    first_name, last_name = _split_name(full_name)
 
     record = {
         "id": str(uuid.uuid4()),
-        **result_data,
+        "email": str(result.email).strip().lower(),
+        "name": full_name,
+        "first_name": first_name,
+        "last_name": last_name,
+        "company": getattr(result, "company_name", None),
+        "website": getattr(result, "company_domain", None),
+        "phone": getattr(result, "phone", None),
+        "phone_type": getattr(result, "phone_type", None),
+        "country_code": None,
+        "country_name": None,
+        "confidence": int(
+            getattr(result, "confidence", 0) or 0
+        ),
+        "status": str(
+            getattr(result, "status", "NOT_FOUND")
+        ),
+        "source_url": getattr(result, "source_url", None),
+        "source_provider": "identity_resolver",
+        "evidence": list(
+            getattr(result, "evidence", None) or []
+        ),
         "created_at": now,
         "updated_at": now,
     }

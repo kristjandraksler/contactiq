@@ -370,20 +370,45 @@ def _identity_evidence(result: FinderResult) -> list[str]:
     return evidence[:20]
 
 
+def _split_identity_name(
+    full_name: str | None,
+) -> tuple[str | None, str | None]:
+    if not full_name:
+        return None, None
+
+    parts = [
+        part
+        for part in full_name.strip().split()
+        if part
+    ]
+
+    if not parts:
+        return None, None
+
+    if len(parts) == 1:
+        return parts[0], None
+
+    return parts[0], " ".join(parts[1:])
+
+
 def save_identity_result(
     email: str,
     result: FinderResult,
+    phone_country: Any,
 ) -> None:
     now = utc_now_iso()
     status = _identity_status(result)
+    full_name = _identity_person_name(result)
+    first_name, last_name = _split_identity_name(full_name)
 
     record = {
         "id": str(uuid.uuid4()),
         "email": email.strip().lower(),
-        "status": status,
-        "person_name": _identity_person_name(result),
-        "company_name": None,
-        "company_domain": result.website,
+        "name": full_name,
+        "first_name": first_name,
+        "last_name": last_name,
+        "company": None,
+        "website": result.website,
         "phone": result.phone,
         "phone_type": (
             "direct_business"
@@ -391,8 +416,20 @@ def save_identity_result(
             and status in {"VERIFIED", "NEEDS_REVIEW"}
             else None
         ),
+        "country_code": getattr(
+            phone_country,
+            "country_code",
+            None,
+        ),
+        "country_name": getattr(
+            phone_country,
+            "country_name",
+            None,
+        ),
         "confidence": int(result.confidence or 0),
+        "status": status,
         "source_url": result.source_url,
+        "source_provider": "public_person_discovery",
         "evidence": _identity_evidence(result),
         "created_at": now,
         "updated_at": now,
