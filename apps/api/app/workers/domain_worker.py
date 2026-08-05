@@ -72,7 +72,7 @@ PUBLIC_EMAIL_SEARCH_TIMEOUT_SECONDS = max(
 )
 PUBLIC_EMAIL_CONTACT_CONCURRENCY = max(
     1,
-    min(int(os.getenv("PUBLIC_EMAIL_CONTACT_CONCURRENCY", "2")), 5),
+    min(int(os.getenv("PUBLIC_EMAIL_CONTACT_CONCURRENCY", "20")), 20),
 )
 
 # The admin endpoint has a 240-second timeout. Keep each claimed public-email
