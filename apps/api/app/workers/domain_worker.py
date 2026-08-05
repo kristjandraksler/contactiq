@@ -580,10 +580,11 @@ async def _process_public_contact(
     country = phone_country if matched else detect_phone_country(None)
 
     await asyncio.to_thread(
-        save_identity_result,
-        email,
-        result,
-    )
+            save_identity_result,
+            email,
+            result,
+            phone_country,
+        )
 
     contact_payload = _payload(
         result,
